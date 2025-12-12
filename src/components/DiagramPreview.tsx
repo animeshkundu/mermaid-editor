@@ -9,7 +9,7 @@ import { PanZoomContainer } from '@/components/PanZoomContainer';
 interface DiagramPreviewProps {
   code: string;
   config: MermaidConfig;
-  onSvgRendered?: (svg: string, svgElement: SVGSVGElement | null) => void;
+  onSvgRendered?: (svgString: string) => void;
 }
 
 export const DiagramPreview = ({ code, config, onSvgRendered }: DiagramPreviewProps) => {
@@ -23,7 +23,7 @@ export const DiagramPreview = ({ code, config, onSvgRendered }: DiagramPreviewPr
     if (!code.trim()) {
       setSvg('');
       setError('');
-      onSvgRendered?.('', null);
+      onSvgRendered?.('');
       return;
     }
 
@@ -35,15 +35,11 @@ export const DiagramPreview = ({ code, config, onSvgRendered }: DiagramPreviewPr
       const result = await renderMermaid(code, elementId, config);
       setSvg(result.svg);
       setError('');
-      
-      setTimeout(() => {
-        const svgElement = containerRef.current?.querySelector('svg');
-        onSvgRendered?.(result.svg, svgElement || null);
-      }, 50);
+      onSvgRendered?.(result.svg);
     } catch (err) {
       setError(extractErrorMessage(err));
       setSvg('');
-      onSvgRendered?.('', null);
+      onSvgRendered?.('');
     } finally {
       setIsRendering(false);
     }

@@ -29,8 +29,7 @@ function App() {
   const [config, setConfig] = useKV<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
   const [editorSettings] = useKV<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [currentSvg, setCurrentSvg] = useState<string>('');
-  const [currentSvgElement, setCurrentSvgElement] = useState<SVGSVGElement | null>(null);
+  const [currentSvgString, setCurrentSvgString] = useState<string>('');
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -44,18 +43,18 @@ function App() {
 
   const handleExport = useCallback(async (format: ExportFormat) => {
     try {
-      if (!currentSvgElement && format !== 'markdown') {
+      if (!currentSvgString && format !== 'markdown') {
         toast.error('No diagram to export');
         return;
       }
 
-      await exportDiagram(format, code || '', currentSvgElement || undefined);
+      await exportDiagram(format, code || '', currentSvgString);
       toast.success(`Exported as ${format.toUpperCase()}`);
     } catch (error) {
       toast.error('Export failed');
       console.error(error);
     }
-  }, [code, currentSvgElement]);
+  }, [code, currentSvgString]);
 
   const handleLoadExample = useCallback((example: DiagramExample) => {
     setCode(example.code);
@@ -72,22 +71,21 @@ function App() {
 
   const handleCopyImage = useCallback(async () => {
     try {
-      if (!currentSvgElement) {
+      if (!currentSvgString) {
         toast.error('No diagram to copy');
         return;
       }
 
-      await copyImageToClipboard(currentSvgElement);
+      await copyImageToClipboard(currentSvgString);
       toast.success('Image copied to clipboard');
     } catch (error) {
       toast.error('Failed to copy image');
       console.error(error);
     }
-  }, [currentSvgElement]);
+  }, [currentSvgString]);
 
-  const handleSvgRendered = useCallback((svg: string, svgElement: SVGSVGElement | null) => {
-    setCurrentSvg(svg);
-    setCurrentSvgElement(svgElement);
+  const handleSvgRendered = useCallback((svgString: string) => {
+    setCurrentSvgString(svgString);
   }, []);
 
   return (
