@@ -20,15 +20,16 @@ const SEQUENCE_COLORS = [
 ];
 
 // Text colors that contrast with each background
+// Using pure white for better legibility on medium/dark backgrounds
 const SEQUENCE_TEXT_COLORS = [
-  '#FFFFFF',  // white on slateBlue
-  '#2D2A26',  // dark on sage
-  '#FFFFFF',  // white on terracotta
-  '#2D2A26',  // dark on dustyBlue
-  '#2D2A26',  // dark on dustyRose
-  '#2D2A26',  // dark on golden
-  '#FFFFFF',  // white on warmGray
-  '#FFFFFF',  // white on olive
+  '#FFFFFF',  // white on slateBlue (dark)
+  '#FFFFFF',  // white on sage (medium) - white has better contrast than dark
+  '#FFFFFF',  // white on terracotta (medium-dark)
+  '#1a1a1a',  // near-black on dustyBlue (light)
+  '#1a1a1a',  // near-black on dustyRose (light)
+  '#1a1a1a',  // near-black on golden (light)
+  '#FFFFFF',  // white on warmGray (dark)
+  '#FFFFFF',  // white on olive (dark)
 ];
 
 /**
@@ -120,8 +121,14 @@ export const postProcessSequenceDiagramSvg = (svg: string, code: string): string
     rect.setAttribute('style', `fill: ${bgColor}; stroke: ${bgColor};`);
     
     // Update text color for contrast using inline style
+    // Must also style <tspan> elements since CSS rule `text.actor>tspan` overrides text fill
     if (textEl) {
       textEl.setAttribute('style', `${textEl.getAttribute('style') || ''}; fill: ${textColor};`);
+      // Also apply to all tspan children
+      const tspans = textEl.querySelectorAll('tspan');
+      tspans.forEach(tspan => {
+        tspan.setAttribute('style', `fill: ${textColor};`);
+      });
     }
   });
   
