@@ -2,6 +2,8 @@
 
 A modern, client-side editor for creating [Mermaid](https://mermaid.js.org/) diagrams with real-time preview. No account required, no server-side processing—everything runs in your browser.
 
+**Live demo:** [animeshkundu.github.io/mermaid-editor](https://animeshkundu.github.io/mermaid-editor/)
+
 ## Features
 
 - 🎨 **Live Preview** - See diagrams render in real-time as you type
