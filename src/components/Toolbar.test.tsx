@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Toolbar } from '@/components/Toolbar';
 
 // Mock the useIsMobile hook
@@ -52,7 +52,7 @@ describe('Toolbar Component', () => {
     render(<Toolbar {...defaultProps} canUndo={false} />);
     // Find the undo button by its icon/tooltip functionality
     const undoButtons = screen.getAllByRole('button');
-    const undoButton = undoButtons.find(btn => btn.querySelector('svg'));
+    const _undoButton = undoButtons.find(btn => btn.querySelector('svg'));
     // Just check the toolbar renders
     expect(screen.getByText('Mermaid Live Editor')).toBeInTheDocument();
   });

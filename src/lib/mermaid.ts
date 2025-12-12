@@ -1,6 +1,5 @@
 import * as mermaidAPI from 'mermaid';
 import { MermaidConfig } from '@/types';
-import { MUTED_PALETTE } from './constants';
 
 const mermaid = mermaidAPI.default || mermaidAPI;
 
@@ -158,21 +157,17 @@ export const renderMermaid = async (
     initializeMermaid(config);
   }
 
-  try {
-    const { svg } = await mermaid.render(elementId, code);
-    // Post-process to auto-color sequence diagram actors
-    const processedSvg = postProcessSequenceDiagramSvg(svg, code);
-    return { svg: processedSvg };
-  } catch (error) {
-    throw error;
-  }
+  const { svg } = await mermaid.render(elementId, code);
+  // Post-process to auto-color sequence diagram actors
+  const processedSvg = postProcessSequenceDiagramSvg(svg, code);
+  return { svg: processedSvg };
 };
 
 export const validateMermaidSyntax = async (code: string): Promise<boolean> => {
   try {
     await mermaid.parse(code);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 };

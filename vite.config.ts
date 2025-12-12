@@ -11,6 +11,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  // Base path for GitHub Pages deployment
+  // Uses repository name when GITHUB_PAGES env is set, otherwise root
+  base: process.env.GITHUB_PAGES ? '/mermaid-editor/' : '/',
   resolve: {
     alias: {
       '@': resolve(projectRoot, 'src')

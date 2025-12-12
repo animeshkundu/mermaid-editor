@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { exportSVG, exportPNG, exportMarkdown, exportDiagram, copyImageToClipboard } from '@/lib/export';
+import { exportSVG, exportMarkdown, exportDiagram, copyImageToClipboard } from '@/lib/export';
 
 // Mock DOM elements and APIs
 const mockLink = {

@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import {
   Select,
@@ -75,7 +74,7 @@ export const ConfigDialog = ({
       setError('');
       toast.success('Configuration saved');
       onOpenChange(false);
-    } catch (err) {
+    } catch {
       setError('Invalid JSON format');
       toast.error('Invalid JSON format');
     }

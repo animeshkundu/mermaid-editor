@@ -120,7 +120,7 @@ const mermaidLanguageDefinition = {
       // Class diagram
       [/\b(class|interface|annotation|namespace)\b/, 'keyword.class'],
       [/(\+|-|#|~)/, 'operator.visibility'],
-      [/(\<\<|\>\>)/, 'annotation'],
+      [/(<<|>>)/, 'annotation'],
       
       // Gantt
       [/\b(dateFormat|axisFormat|excludes|includes|todayMarker)\b/, 'keyword.gantt'],
@@ -167,14 +167,14 @@ const mermaidLanguageDefinition = {
       
       // Node shapes with text - capture the whole thing
       [/\[\[[^\]]*\]\]/, 'node.subroutine'],   // [[subroutine]]
-      [/\[\([^\)]*\)\]/, 'node.cylinder'],      // [(cylinder)]
-      [/\[\{[^\}]*\}\]/, 'node.trapezoid'],     // [{trapezoid}]
+      [/\[\([^)]*\)\]/, 'node.cylinder'],      // [(cylinder)]
+      [/\[\{[^}]*\}\]/, 'node.trapezoid'],     // [{trapezoid}]
       [/\(\[[^\]]*\]\)/, 'node.stadium'],       // ([stadium])
-      [/\(\([^\)]*\)\)/, 'node.circle'],        // ((circle))
-      [/\{\{[^\}]*\}\}/, 'node.hexagon'],       // {{hexagon}}
-      [/\{[^\}]*\}/, 'node.rhombus'],           // {rhombus/decision}
+      [/\(\([^)]*\)\)/, 'node.circle'],        // ((circle))
+      [/\{\{[^}]*\}\}/, 'node.hexagon'],       // {{hexagon}}
+      [/\{[^}]*\}/, 'node.rhombus'],           // {rhombus/decision}
       [/\[[^\]]*\]/, 'node.rect'],              // [rectangle]
-      [/\([^\)]*\)/, 'node.rounded'],           // (rounded)
+      [/\([^)]*\)/, 'node.rounded'],           // (rounded)
       [/>[^\]]*\]/, 'node.asymmetric'],         // >asymmetric]
       
       // Flowchart arrows and links
@@ -194,7 +194,7 @@ const mermaidLanguageDefinition = {
       [/[A-Za-z_][A-Za-z0-9_]*/, 'identifier'],
       
       // Punctuation
-      [/[{}()\[\]]/, 'delimiter.bracket'],
+      [/[{}()[\]]/, 'delimiter.bracket'],
       [/[;,:]/, 'delimiter'],
       [/&|@/, 'operator'],
     ],
