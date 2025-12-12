@@ -1,5 +1,7 @@
-import mermaid from 'mermaid';
+import * as mermaidAPI from 'mermaid';
 import { MermaidConfig } from '@/types';
+
+const mermaid = mermaidAPI.default || mermaidAPI;
 
 let isInitialized = false;
 
