@@ -1,23 +1,27 @@
 # Mermaid Live Editor
 
-A React-based live editor for creating and editing [Mermaid](https://mermaid.js.org/) diagrams with real-time preview.
+A modern, client-side editor for creating [Mermaid](https://mermaid.js.org/) diagrams with real-time preview. No account required, no server-side processing—everything runs in your browser.
 
 ## Features
 
-- 🎨 **Live Preview** - See your diagrams render in real-time as you type
+- 🎨 **Live Preview** - See diagrams render in real-time as you type
 - 📝 **Monaco Editor** - Full-featured code editor with syntax highlighting
-- 🎭 **Multiple Themes** - Choose from Default, Forest, Dark, Neutral, and Base themes
-- 📤 **Export Options** - Export as SVG, PNG (with configurable scale), or Markdown
-- 🔗 **Share URLs** - Share diagrams via encoded URLs
+- 🔍 **Pan & Zoom** - Navigate large diagrams with smooth pan and zoom controls
+- 🎭 **Multiple Themes** - Default, Forest, Dark, Neutral, and Base mermaid themes
+- 🎨 **Elegant Color Palette** - Carefully designed beige/neutral color scheme with auto-colored sequence diagram actors
+- 📤 **Export Options** - Export as SVG, PNG (1x–4x scale), or Markdown
+- 📋 **Copy to Clipboard** - Copy diagram as PNG image directly to clipboard
+- 🔗 **Share URLs** - Share diagrams via encoded URLs (no server required)
 - ⌨️ **Keyboard Shortcuts** - Efficient workflow with common shortcuts
-- 📱 **Responsive** - Works on desktop and mobile devices
+- ↩️ **Undo/Redo** - Full history support with `Ctrl+Z` / `Ctrl+Y`
+- 📱 **Responsive** - Tabbed interface on mobile, resizable panels on desktop
 - 🌙 **Dark Mode** - Light and dark application themes
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm 9+
 
 ### Installation
@@ -44,8 +48,9 @@ npm run build        # Build for production (tsc + vite build)
 npm run preview      # Preview production build
 npm run test         # Run tests (vitest, single run)
 npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage
 npm run lint         # Run ESLint
-npm run kill         # Kill process on port 5000
+npm run clean        # Clear build cache
 ```
 
 ## Supported Diagram Types
@@ -94,7 +99,12 @@ npm run kill         # Kill process on port 5000
 - **Monaco Editor** - Code editor
 - **Mermaid** - Diagram rendering
 - **shadcn/ui** - UI components
+- **Radix UI** - Accessible primitives
 - **Vitest** - Testing
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
