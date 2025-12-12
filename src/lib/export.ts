@@ -1,7 +1,7 @@
 import { ExportFormat } from '@/types';
 
-export const downloadFile = (content: string, filename: string, mimeType: string) => {
-  const blob = new Blob([content], { type: mimeType });
+const downloadFile = (content: string | Blob, filename: string, mimeType: string) => {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -12,42 +12,66 @@ export const downloadFile = (content: string, filename: string, mimeType: string
   URL.revokeObjectURL(url);
 };
 
-export const exportSVG = (svgContent: string, filename: string = 'diagram.svg') => {
-  downloadFile(svgContent, filename, 'image/svg+xml');
-};
-
-const prepareSVGForExport = (svgContent: string): string => {
-  const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
-  const svgElement = svgDoc.querySelector('svg');
-  
-  if (!svgElement) {
-    throw new Error('Invalid SVG content');
+const inlineStyles = (element: Element, computedStyles: Map<Element, CSSStyleDeclaration>): void => {
+  if (!(element instanceof SVGElement && element instanceof Element)) {
+    return;
   }
 
-  svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  const computed = computedStyles.get(element) || window.getComputedStyle(element);
   
-  const existingStyles = svgDoc.querySelectorAll('style');
-  existingStyles.forEach(style => {
-    if (style.textContent) {
-      style.textContent = style.textContent.replace(/@import[^;]+;/g, '');
+  const importantStyles = [
+    'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
+    'opacity', 'font-family', 'font-size', 'font-weight', 'font-style',
+    'text-anchor', 'dominant-baseline', 'alignment-baseline',
+    'color', 'display', 'visibility', 'marker-start', 'marker-end', 'marker-mid'
+  ];
+
+  let styleString = '';
+  importantStyles.forEach(prop => {
+    const value = computed.getPropertyValue(prop);
+    if (value && value !== 'none' && value !== 'normal') {
+      styleString += `${prop}:${value};`;
     }
   });
 
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(svgElement);
-};
-
-const getSVGDimensions = (svgContent: string): { width: number; height: number } => {
-  const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
-  const svgElement = svgDoc.querySelector('svg');
-  
-  if (!svgElement) {
-    return { width: 800, height: 600 };
+  if (styleString) {
+    const existingStyle = element.getAttribute('style') || '';
+    element.setAttribute('style', existingStyle + styleString);
   }
 
+  Array.from(element.children).forEach(child => {
+    inlineStyles(child, computedStyles);
+  });
+};
+
+const cloneSVGWithStyles = (originalSvg: SVGSVGElement): SVGSVGElement => {
+  const computedStyles = new Map<Element, CSSStyleDeclaration>();
+  
+  const collectStyles = (element: Element) => {
+    if (element instanceof SVGElement) {
+      computedStyles.set(element, window.getComputedStyle(element));
+    }
+    Array.from(element.children).forEach(collectStyles);
+  };
+  
+  collectStyles(originalSvg);
+  
+  const clonedSvg = originalSvg.cloneNode(true) as SVGSVGElement;
+  
+  clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  
+  const existingStyle = clonedSvg.querySelector('style');
+  if (existingStyle && existingStyle.textContent) {
+    existingStyle.textContent = existingStyle.textContent.replace(/@import[^;]+;/g, '');
+  }
+  
+  inlineStyles(clonedSvg, computedStyles);
+  
+  return clonedSvg;
+};
+
+const getSVGDimensions = (svgElement: SVGSVGElement): { width: number; height: number } => {
   let width = parseFloat(svgElement.getAttribute('width') || '0');
   let height = parseFloat(svgElement.getAttribute('height') || '0');
 
@@ -56,39 +80,48 @@ const getSVGDimensions = (svgContent: string): { width: number; height: number }
     const parts = viewBox.split(/[\s,]+/).map(parseFloat);
     if (parts.length === 4) {
       const [, , vbWidth, vbHeight] = parts;
-      if (!width || isNaN(width) || String(svgElement.getAttribute('width') || '').includes('%')) {
+      if (!width || isNaN(width) || width === 0) {
         width = vbWidth;
       }
-      if (!height || isNaN(height) || String(svgElement.getAttribute('height') || '').includes('%')) {
+      if (!height || isNaN(height) || height === 0) {
         height = vbHeight;
       }
     }
   }
 
-  if (!width || !height || isNaN(width) || isNaN(height)) {
-    width = 800;
-    height = 600;
+  if (!width || !height || isNaN(width) || isNaN(height) || width === 0 || height === 0) {
+    const bbox = svgElement.getBBox();
+    width = bbox.width || 800;
+    height = bbox.height || 600;
   }
 
   return { width: Math.ceil(width), height: Math.ceil(height) };
 };
 
-export const exportPNG = async (svgContent: string, filename: string = 'diagram.png') => {
-  return new Promise<void>((resolve, reject) => {
+const svgToCanvas = (
+  svgElement: SVGSVGElement,
+  scale: number = 3
+): Promise<HTMLCanvasElement> => {
+  return new Promise((resolve, reject) => {
     try {
-      const preparedSVG = prepareSVGForExport(svgContent);
-      const { width, height } = getSVGDimensions(preparedSVG);
+      const clonedSvg = cloneSVGWithStyles(svgElement);
+      const { width, height } = getSVGDimensions(clonedSvg);
 
-      const scale = 4;
+      clonedSvg.setAttribute('width', String(width));
+      clonedSvg.setAttribute('height', String(height));
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(clonedSvg);
+
       const canvas = document.createElement('canvas');
       canvas.width = width * scale;
       canvas.height = height * scale;
-      
-      const ctx = canvas.getContext('2d', { 
+
+      const ctx = canvas.getContext('2d', {
         alpha: false,
-        willReadFrequently: false 
+        willReadFrequently: false,
       });
-      
+
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
@@ -97,54 +130,35 @@ export const exportPNG = async (svgContent: string, filename: string = 'diagram.
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.scale(scale, scale);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
       const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      const svgBlob = new Blob([preparedSVG], { type: 'image/svg+xml;charset=utf-8' });
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(svgBlob);
 
       const timeoutId = setTimeout(() => {
         URL.revokeObjectURL(url);
         reject(new Error('Image load timeout'));
-      }, 15000);
+      }, 10000);
 
       img.onload = () => {
         clearTimeout(timeoutId);
-        
+
         try {
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob((blob) => {
-            URL.revokeObjectURL(url);
-            
-            if (blob) {
-              const pngUrl = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = pngUrl;
-              link.download = filename;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              setTimeout(() => URL.revokeObjectURL(pngUrl), 100);
-              resolve();
-            } else {
-              reject(new Error('Failed to create PNG blob'));
-            }
-          }, 'image/png', 1.0);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          resolve(canvas);
         } catch (err) {
           URL.revokeObjectURL(url);
           reject(err);
         }
       };
 
-      img.onerror = (err) => {
+      img.onerror = () => {
         clearTimeout(timeoutId);
         URL.revokeObjectURL(url);
-        reject(new Error('Failed to load SVG image: ' + String(err)));
+        reject(new Error('Failed to load SVG'));
       };
 
       img.src = url;
@@ -154,83 +168,57 @@ export const exportPNG = async (svgContent: string, filename: string = 'diagram.
   });
 };
 
-export const copyImageToClipboard = async (svgContent: string): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
-    try {
-      const preparedSVG = prepareSVGForExport(svgContent);
-      const { width, height } = getSVGDimensions(preparedSVG);
+export const exportSVG = (svgElement: SVGSVGElement, filename: string = 'diagram.svg') => {
+  const clonedSvg = cloneSVGWithStyles(svgElement);
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(clonedSvg);
+  downloadFile(svgString, filename, 'image/svg+xml');
+};
 
-      const scale = 4;
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      
-      const ctx = canvas.getContext('2d', { 
-        alpha: false,
-        willReadFrequently: false 
-      });
-      
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
-      }
+export const exportPNG = async (
+  svgElement: SVGSVGElement,
+  filename: string = 'diagram.png'
+): Promise<void> => {
+  const canvas = await svgToCanvas(svgElement, 3);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.scale(scale, scale);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      const svgBlob = new Blob([preparedSVG], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      const timeoutId = setTimeout(() => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Image load timeout'));
-      }, 15000);
-
-      img.onload = () => {
-        clearTimeout(timeoutId);
-        
-        try {
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          canvas.toBlob(async (blob) => {
-            URL.revokeObjectURL(url);
-            
-            if (blob) {
-              try {
-                await navigator.clipboard.write([
-                  new ClipboardItem({ 'image/png': blob }),
-                ]);
-                resolve();
-              } catch (err) {
-                reject(new Error('Clipboard access denied: ' + String(err)));
-              }
-            } else {
-              reject(new Error('Failed to create PNG blob'));
-            }
-          }, 'image/png', 1.0);
-        } catch (err) {
-          URL.revokeObjectURL(url);
-          reject(err);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          downloadFile(blob, filename, 'image/png');
+          resolve();
+        } else {
+          reject(new Error('Failed to create PNG blob'));
         }
-      };
+      },
+      'image/png',
+      1.0
+    );
+  });
+};
 
-      img.onerror = (err) => {
-        clearTimeout(timeoutId);
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to load SVG image: ' + String(err)));
-      };
+export const copyImageToClipboard = async (svgElement: SVGSVGElement): Promise<void> => {
+  const canvas = await svgToCanvas(svgElement, 3);
 
-      img.src = url;
-    } catch (err) {
-      reject(err);
-    }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      async (blob) => {
+        if (blob) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob }),
+            ]);
+            resolve();
+          } catch (err) {
+            reject(new Error('Clipboard access denied: ' + String(err)));
+          }
+        } else {
+          reject(new Error('Failed to create PNG blob'));
+        }
+      },
+      'image/png',
+      1.0
+    );
   });
 };
 
@@ -242,20 +230,20 @@ export const exportMarkdown = (code: string, filename: string = 'diagram.md') =>
 export const exportDiagram = async (
   format: ExportFormat,
   code: string,
-  svgContent?: string
+  svgElement?: SVGSVGElement
 ) => {
   const timestamp = new Date().toISOString().slice(0, 10);
   const filename = `mermaid-${timestamp}`;
 
   switch (format) {
     case 'svg':
-      if (svgContent) {
-        exportSVG(svgContent, `${filename}.svg`);
+      if (svgElement) {
+        exportSVG(svgElement, `${filename}.svg`);
       }
       break;
     case 'png':
-      if (svgContent) {
-        await exportPNG(svgContent, `${filename}.png`);
+      if (svgElement) {
+        await exportPNG(svgElement, `${filename}.png`);
       }
       break;
     case 'markdown':

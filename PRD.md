@@ -34,11 +34,19 @@ This is a feature-rich development tool requiring sophisticated state management
 - **Success Criteria**: Smooth resizing with no rendering lag, position remembered between sessions
 
 ### Export Capabilities
-- **Functionality**: Download diagrams as SVG, PNG, or markdown
-- **Purpose**: Enable users to use diagrams in other applications
+- **Functionality**: Download diagrams as SVG, PNG, or markdown with perfect fidelity to preview
+- **Purpose**: Enable users to use diagrams in other applications at highest quality
 - **Trigger**: User clicks export button and selects format
-- **Progression**: User clicks export → Format dialog appears → User selects format → File downloads with descriptive name
-- **Success Criteria**: Downloads work in all formats with high quality, proper filenames
+- **Progression**: User clicks export → Format menu displays → User selects format → System captures rendered SVG element → Inlines all computed styles → For PNG: converts to high-res canvas (3x scale) → File downloads with timestamped name → Success toast appears
+- **Success Criteria**: All exports match preview exactly, PNG at 3x resolution, SVG with all styles embedded, no missing elements or colors
+- **Technical Implementation**: Direct SVG DOM element capture with computed style inlining, canvas-based rasterization for PNG at 3x scale with high quality settings
+
+### Clipboard Copy
+- **Functionality**: Copy diagram as PNG image directly to system clipboard
+- **Purpose**: Quick paste into documents, presentations, and chat applications
+- **Trigger**: User clicks "Copy Image" button in toolbar
+- **Progression**: User clicks copy → System captures SVG element → Inlines styles → Converts to PNG via canvas → Writes to clipboard → Success toast appears → User can paste anywhere
+- **Success Criteria**: Image pastes correctly in all applications, matches preview exactly, high resolution (3x scale)
 
 ### Example Diagram Library
 - **Functionality**: Collection of sample diagrams for all mermaid types

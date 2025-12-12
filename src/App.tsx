@@ -30,6 +30,7 @@ function App() {
   const [editorSettings] = useKV<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [currentSvg, setCurrentSvg] = useState<string>('');
+  const [currentSvgElement, setCurrentSvgElement] = useState<SVGSVGElement | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -43,18 +44,18 @@ function App() {
 
   const handleExport = useCallback(async (format: ExportFormat) => {
     try {
-      if (!currentSvg && format !== 'markdown') {
+      if (!currentSvgElement && format !== 'markdown') {
         toast.error('No diagram to export');
         return;
       }
 
-      await exportDiagram(format, code || '', currentSvg);
+      await exportDiagram(format, code || '', currentSvgElement || undefined);
       toast.success(`Exported as ${format.toUpperCase()}`);
     } catch (error) {
       toast.error('Export failed');
       console.error(error);
     }
-  }, [code, currentSvg]);
+  }, [code, currentSvgElement]);
 
   const handleLoadExample = useCallback((example: DiagramExample) => {
     setCode(example.code);
@@ -71,18 +72,23 @@ function App() {
 
   const handleCopyImage = useCallback(async () => {
     try {
-      if (!currentSvg) {
+      if (!currentSvgElement) {
         toast.error('No diagram to copy');
         return;
       }
 
-      await copyImageToClipboard(currentSvg);
+      await copyImageToClipboard(currentSvgElement);
       toast.success('Image copied to clipboard');
     } catch (error) {
       toast.error('Failed to copy image');
       console.error(error);
     }
-  }, [currentSvg]);
+  }, [currentSvgElement]);
+
+  const handleSvgRendered = useCallback((svg: string, svgElement: SVGSVGElement | null) => {
+    setCurrentSvg(svg);
+    setCurrentSvgElement(svgElement);
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
@@ -127,7 +133,7 @@ function App() {
             <DiagramPreview 
               code={code || ''} 
               config={config || DEFAULT_MERMAID_CONFIG}
-              onSvgRendered={setCurrentSvg}
+              onSvgRendered={handleSvgRendered}
             />
           </TabsContent>
         </Tabs>
@@ -159,7 +165,7 @@ function App() {
               <DiagramPreview 
                 code={code || ''} 
                 config={config || DEFAULT_MERMAID_CONFIG}
-                onSvgRendered={setCurrentSvg}
+                onSvgRendered={handleSvgRendered}
               />
             </div>
           </ResizablePanel>
