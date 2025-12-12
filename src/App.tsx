@@ -1,7 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, Suspense, lazy } from 'react';
 import { useKV } from '@github/spark/hooks';
 import { Toolbar } from '@/components/Toolbar';
-import { CodeEditor } from '@/components/CodeEditor';
 import { DiagramPreview } from '@/components/DiagramPreview';
 import { ConfigDialog } from '@/components/ConfigDialog';
 import {
@@ -11,6 +10,7 @@ import {
 } from '@/components/ui/resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ExportFormat, MermaidConfig, EditorSettings, DiagramExample } from '@/types';
 import {
   DEFAULT_DIAGRAM_CODE,
@@ -21,6 +21,8 @@ import { exportDiagram, copyImageToClipboard } from '@/lib/export';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Code, Eye } from '@phosphor-icons/react';
+
+const CodeEditor = lazy(() => import('@/components/CodeEditor').then(module => ({ default: module.CodeEditor })));
 
 function App() {
   const [code, setCode] = useKV('mermaid-code', DEFAULT_DIAGRAM_CODE);
@@ -105,11 +107,20 @@ function App() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="editor" className="flex-1 m-0">
-            <CodeEditor
-              value={code || ''}
-              onChange={handleCodeChange}
-              settings={editorSettings || DEFAULT_EDITOR_SETTINGS}
-            />
+            <Suspense fallback={
+              <div className="h-full w-full bg-[var(--editor-bg)] p-4">
+                <Skeleton className="h-8 w-3/4 mb-4" />
+                <Skeleton className="h-6 w-1/2 mb-4" />
+                <Skeleton className="h-6 w-5/6 mb-4" />
+                <Skeleton className="h-6 w-2/3" />
+              </div>
+            }>
+              <CodeEditor
+                value={code || ''}
+                onChange={handleCodeChange}
+                settings={editorSettings || DEFAULT_EDITOR_SETTINGS}
+              />
+            </Suspense>
           </TabsContent>
           <TabsContent value="preview" className="flex-1 m-0" ref={previewRef}>
             <DiagramPreview code={code || ''} config={config || DEFAULT_MERMAID_CONFIG} />
@@ -119,11 +130,20 @@ function App() {
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           <ResizablePanel defaultSize={50} minSize={30}>
             <div className="h-full">
-              <CodeEditor
-                value={code || ''}
-                onChange={handleCodeChange}
-                settings={editorSettings || DEFAULT_EDITOR_SETTINGS}
-              />
+              <Suspense fallback={
+                <div className="h-full w-full bg-[var(--editor-bg)] p-4">
+                  <Skeleton className="h-8 w-3/4 mb-4" />
+                  <Skeleton className="h-6 w-1/2 mb-4" />
+                  <Skeleton className="h-6 w-5/6 mb-4" />
+                  <Skeleton className="h-6 w-2/3" />
+                </div>
+              }>
+                <CodeEditor
+                  value={code || ''}
+                  onChange={handleCodeChange}
+                  settings={editorSettings || DEFAULT_EDITOR_SETTINGS}
+                />
+              </Suspense>
             </div>
           </ResizablePanel>
 
