@@ -10,11 +10,14 @@ const mockLink = {
 
 const mockBlob = new Blob(['test'], { type: 'image/png' });
 
+// Store original createElement to use for non-mocked elements
+const originalCreateElement = document.createElement.bind(document);
+
 describe('Export Library', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Mock document.createElement for link
+    // Mock document.createElement for link and canvas
     vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       if (tag === 'a') {
         return mockLink as unknown as HTMLElement;
@@ -33,7 +36,8 @@ describe('Export Library', () => {
           toBlob: vi.fn((callback) => callback(mockBlob)),
         } as unknown as HTMLElement;
       }
-      return document.createElement(tag);
+      // Use original for other elements (div, etc.)
+      return originalCreateElement(tag);
     });
     
     // Mock appendChild and removeChild
@@ -43,6 +47,11 @@ describe('Export Library', () => {
     // Mock URL APIs
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    
+    // Mock window.getComputedStyle for style inlining
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      getPropertyValue: vi.fn().mockReturnValue(''),
+    } as unknown as CSSStyleDeclaration);
   });
 
   describe('exportSVG', () => {
