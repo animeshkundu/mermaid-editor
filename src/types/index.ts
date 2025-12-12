@@ -51,7 +51,7 @@ export const MERMAID_LOOKS: { value: MermaidLook; label: string }[] = [
 export interface MermaidConfig {
   theme?: MermaidTheme;
   look?: MermaidLook;
-  themeVariables?: Record<string, string>;
+  themeVariables?: Record<string, string | Record<string, string>>;
   fontFamily?: string;
   flowchart?: {
     curve?: string;

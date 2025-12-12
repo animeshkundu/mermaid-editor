@@ -20,8 +20,8 @@ describe('Constants', () => {
   });
 
   describe('DEFAULT_MERMAID_CONFIG', () => {
-    it('should have a default theme', () => {
-      expect(DEFAULT_MERMAID_CONFIG.theme).toBe('default');
+    it('should have a base theme for customization', () => {
+      expect(DEFAULT_MERMAID_CONFIG.theme).toBe('base');
     });
 
     it('should have themeVariables object', () => {

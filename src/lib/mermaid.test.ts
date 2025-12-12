@@ -24,7 +24,7 @@ describe('Mermaid Library', () => {
       expect(mermaid.initialize).toHaveBeenCalledWith(
         expect.objectContaining({
           startOnLoad: false,
-          theme: 'default',
+          theme: 'base',
         })
       );
     });
