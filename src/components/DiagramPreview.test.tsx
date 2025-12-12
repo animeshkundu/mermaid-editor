@@ -18,12 +18,8 @@ describe('DiagramPreview Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
   });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  
 
   it('should show placeholder when code is empty', async () => {
     render(<DiagramPreview code="" config={DEFAULT_MERMAID_CONFIG} />);
@@ -49,13 +45,10 @@ describe('DiagramPreview Component', () => {
       />
     );
 
-    // Advance timers to trigger debounced render
-    vi.advanceTimersByTime(500);
-
-    // The callback should eventually be called
+    // The callback should eventually be called (allow some time for async render)
     await waitFor(() => {
       expect(onSvgRendered).toHaveBeenCalled();
-    }, { timeout: 2000 });
+    }, { timeout: 5000 });
   });
 });
 

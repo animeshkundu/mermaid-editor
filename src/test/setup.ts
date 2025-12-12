@@ -36,3 +36,12 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
 HTMLCanvasElement.prototype.toBlob = vi.fn((callback) => {
   callback(new Blob(['mock'], { type: 'image/png' }));
 });
+
+// Polyfill ResizeObserver for test environment
+// Some UI libs (Radix) rely on ResizeObserver being available in the DOM.
+// Provide a minimal mock that exposes the needed methods.
+(global as any).ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};

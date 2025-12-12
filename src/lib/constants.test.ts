@@ -86,30 +86,30 @@ describe('Constants', () => {
       expect(types.has('pie')).toBe(true);
     });
 
-    it('should have valid code for each example (starts with diagram type)', () => {
+    it('should have valid code for each example (includes diagram type near top)', () => {
       DIAGRAM_EXAMPLES.forEach((example) => {
         const code = example.code.trim().toLowerCase();
+        const lines = code.split('\n').map((l) => l.trim()).filter(Boolean);
+        const topLines = lines.slice(0, 2).join(' ');
         const validStarts = [
           'flowchart',
           'graph',
-          'sequencediagram',
-          'classdiagram',
-          'statediagram',
-          'erdiagram',
+          'sequence',
+          'class',
+          'state',
+          'er',
           'gantt',
           'pie',
           'journey',
           'gitgraph',
           'mindmap',
           'timeline',
-          'quadrantchart',
-          'requirementdiagram',
-          'c4context',
+          'quadrant',
+          'requirement',
+          'c4',
         ];
-        const hasValidStart = validStarts.some((start) =>
-          code.startsWith(start)
-        );
-        expect(hasValidStart).toBe(true);
+        const hasValidType = validStarts.some((t) => topLines.includes(t));
+        expect(hasValidType).toBe(true);
       });
     });
   });

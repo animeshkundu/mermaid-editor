@@ -123,7 +123,8 @@ describe('Mermaid Library', () => {
 
     it('should handle objects', () => {
       const result = extractErrorMessage({ code: 'ERR_001' });
-      expect(result).toContain('code');
+      // Accept implementations that either stringify objects or include keys
+      expect(result.includes('code') || result.includes('"code"')).toBe(true);
     });
   });
 });
