@@ -17,7 +17,7 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY * -0.001;
-    setScale(s => Math.min(Math.max(0.1, s + delta), 3));
+    setScale(s => Math.min(Math.max(0.1, s + delta), 16));
   }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -66,7 +66,7 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
   };
 
   const zoomIn = () => {
-    setScale((s) => Math.min(s + 0.2, 3));
+    setScale((s) => Math.min(s + 0.2, 16));
   };
 
   const zoomOut = () => {
