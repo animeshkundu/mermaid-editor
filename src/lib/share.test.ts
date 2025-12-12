@@ -146,24 +146,46 @@ describe('Share Library', () => {
   });
 
   describe('generateShareUrl', () => {
-    it('should generate a valid URL', () => {
+    it('should generate a valid URL with hash', () => {
       const state: ShareableState = {
         code: 'flowchart TD\n  A --> B',
       };
       
       const url = generateShareUrl(state);
       expect(url).toContain('http://localhost:3000');
-      expect(url).toContain('code=');
+      expect(url).toContain('#'); // Uses hash instead of query param
+      expect(url).not.toContain('?code='); // Should not use query params
     });
   });
 
   describe('parseUrlState', () => {
-    it('should return null when no code param exists', () => {
+    it('should return null when no state exists in URL', () => {
       const state = parseUrlState();
       expect(state).toBeNull();
     });
 
-    it('should parse state from URL', () => {
+    it('should parse state from URL hash (new format)', () => {
+      const original: ShareableState = {
+        code: 'flowchart TD\n  A --> B',
+      };
+      const encoded = encodeState(original);
+      
+      Object.defineProperty(window, 'location', {
+        value: {
+          href: `http://localhost:3000/#${encoded}`,
+          origin: 'http://localhost:3000',
+          pathname: '/',
+          search: '',
+          hash: `#${encoded}`,
+        },
+        writable: true,
+      });
+      
+      const parsed = parseUrlState();
+      expect(parsed?.code).toBe(original.code);
+    });
+
+    it('should parse state from query param (legacy format)', () => {
       const original: ShareableState = {
         code: 'flowchart TD\n  A --> B',
       };
@@ -182,6 +204,27 @@ describe('Share Library', () => {
       
       const parsed = parseUrlState();
       expect(parsed?.code).toBe(original.code);
+    });
+
+    it('should prefer hash over query param when both exist', () => {
+      const hashState: ShareableState = { code: 'hash code' };
+      const queryState: ShareableState = { code: 'query code' };
+      const hashEncoded = encodeState(hashState);
+      const queryEncoded = encodeState(queryState);
+      
+      Object.defineProperty(window, 'location', {
+        value: {
+          href: `http://localhost:3000/?code=${queryEncoded}#${hashEncoded}`,
+          origin: 'http://localhost:3000',
+          pathname: '/',
+          search: `?code=${queryEncoded}`,
+          hash: `#${hashEncoded}`,
+        },
+        writable: true,
+      });
+      
+      const parsed = parseUrlState();
+      expect(parsed?.code).toBe(hashState.code);
     });
   });
 });

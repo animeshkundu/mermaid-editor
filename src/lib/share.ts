@@ -69,6 +69,8 @@ export const decodeState = (encoded: string): ShareableState | null => {
 
 /**
  * Generate a shareable URL with the current state
+ * Uses URL hash instead of query params to avoid 431 header size errors
+ * Hash fragments are never sent to the server
  */
 export const generateShareUrl = (state: ShareableState): string => {
   const encoded = encodeState(state);
@@ -77,7 +79,7 @@ export const generateShareUrl = (state: ShareableState): string => {
   url.search = '';
   
   if (encoded) {
-    url.searchParams.set('code', encoded);
+    url.hash = encoded;
   }
   
   return url.toString();
@@ -85,16 +87,24 @@ export const generateShareUrl = (state: ShareableState): string => {
 
 /**
  * Parse state from the current URL
+ * Supports both hash (new) and query param (legacy) formats
  */
 export const parseUrlState = (): ShareableState | null => {
   const url = new URL(window.location.href);
-  const encoded = url.searchParams.get('code');
   
-  if (!encoded) {
-    return null;
+  // Try hash first (new format - avoids 431 errors)
+  const hashEncoded = url.hash.slice(1); // Remove leading #
+  if (hashEncoded) {
+    return decodeState(hashEncoded);
   }
   
-  return decodeState(encoded);
+  // Fall back to query param (legacy format)
+  const queryEncoded = url.searchParams.get('code');
+  if (queryEncoded) {
+    return decodeState(queryEncoded);
+  }
+  
+  return null;
 };
 
 /**
