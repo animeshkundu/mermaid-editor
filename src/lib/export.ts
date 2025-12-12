@@ -18,22 +18,51 @@ export const exportSVG = (svgContent: string, filename: string = 'diagram.svg') 
 
 export const exportPNG = async (svgContent: string, filename: string = 'diagram.png') => {
   return new Promise<void>((resolve, reject) => {
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+    const svgElement = svgDoc.querySelector('svg');
+    
+    if (!svgElement) {
+      reject(new Error('Invalid SVG content'));
+      return;
+    }
+
+    const viewBox = svgElement.getAttribute('viewBox');
+    let width = parseFloat(svgElement.getAttribute('width') || '0');
+    let height = parseFloat(svgElement.getAttribute('height') || '0');
+
+    if (viewBox && (!width || !height)) {
+      const [, , vbWidth, vbHeight] = viewBox.split(' ').map(parseFloat);
+      width = vbWidth;
+      height = vbHeight;
+    }
+
+    if (!width || !height) {
+      width = 800;
+      height = 600;
+    }
+
+    const scale = 4;
     const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       reject(new Error('Failed to get canvas context'));
       return;
     }
 
+    ctx.scale(scale, scale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     const img = new Image();
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
     img.onload = () => {
-      canvas.width = img.width * 2;
-      canvas.height = img.height * 2;
-      ctx.scale(2, 2);
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
       
       canvas.toBlob((blob) => {
         if (blob) {
@@ -50,7 +79,7 @@ export const exportPNG = async (svgContent: string, filename: string = 'diagram.
         } else {
           reject(new Error('Failed to create PNG blob'));
         }
-      }, 'image/png');
+      }, 'image/png', 1.0);
     };
 
     img.onerror = () => {
@@ -64,24 +93,53 @@ export const exportPNG = async (svgContent: string, filename: string = 'diagram.
 
 export const copyImageToClipboard = async (svgContent: string): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+    const svgElement = svgDoc.querySelector('svg');
+    
+    if (!svgElement) {
+      reject(new Error('Invalid SVG content'));
+      return;
+    }
+
+    const viewBox = svgElement.getAttribute('viewBox');
+    let width = parseFloat(svgElement.getAttribute('width') || '0');
+    let height = parseFloat(svgElement.getAttribute('height') || '0');
+
+    if (viewBox && (!width || !height)) {
+      const [, , vbWidth, vbHeight] = viewBox.split(' ').map(parseFloat);
+      width = vbWidth;
+      height = vbHeight;
+    }
+
+    if (!width || !height) {
+      width = 800;
+      height = 600;
+    }
+
+    const scale = 4;
     const canvas = document.createElement('canvas');
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       reject(new Error('Failed to get canvas context'));
       return;
     }
 
+    ctx.scale(scale, scale);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, width, height);
+
     const img = new Image();
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
     img.onload = () => {
-      canvas.width = img.width * 2;
-      canvas.height = img.height * 2;
-      ctx.scale(2, 2);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
       
       canvas.toBlob(async (blob) => {
         if (blob) {
@@ -99,7 +157,7 @@ export const copyImageToClipboard = async (svgContent: string): Promise<void> =>
           URL.revokeObjectURL(url);
           reject(new Error('Failed to create PNG blob'));
         }
-      }, 'image/png');
+      }, 'image/png', 1.0);
     };
 
     img.onerror = () => {
