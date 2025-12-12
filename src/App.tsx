@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, Suspense, lazy, useEffect } from 'react';
-import { useKV } from '@github/spark/hooks';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Toolbar, LayoutDirection, AppTheme } from '@/components/Toolbar';
 import { DiagramPreview } from '@/components/DiagramPreview';
 import { ConfigDialog } from '@/components/ConfigDialog';
@@ -30,16 +30,16 @@ import { Code, Eye } from '@phosphor-icons/react';
 const CodeEditor = lazy(() => import('@/components/CodeEditor').then(module => ({ default: module.CodeEditor })));
 
 function App() {
-  const [code, setCode] = useKV('mermaid-code', DEFAULT_DIAGRAM_CODE);
-  const [config, setConfig] = useKV<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
-  const [editorSettings] = useKV<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
+  const [code, setCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
+  const [config, setConfig] = useLocalStorage<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
+  const [editorSettings] = useLocalStorage<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentSvgString, setCurrentSvgString] = useState<string>('');
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
-  const [layout, setLayout] = useKV<LayoutDirection>('layout-direction', 'horizontal');
-  const [appTheme, setAppTheme] = useKV<AppTheme>('app-theme', 'light');
+  const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
+  const [appTheme, setAppTheme] = useLocalStorage<AppTheme>('app-theme', 'light');
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 

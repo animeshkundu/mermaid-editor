@@ -1,98 +1,100 @@
 # Mermaid Live Editor - Copilot Instructions
 
-## Architecture Overview
+## Architecture
 
-This is a **GitHub Spark** application—a React-based mermaid diagram editor with real-time preview. Key architecture decisions:
+React app for editing mermaid diagrams with real-time preview. All rendering is client-side.
 
-- **Single-page app** in `src/App.tsx` - manages all state and coordinates components
-- **Persistence via `useKV`** from `@github/spark/hooks` - auto-saves code, config, and settings to Spark's KV store
-- **Client-side only** - all diagram rendering and export happens in-browser using mermaid.js
-- **Responsive layout** - split panels on desktop, tabbed view on mobile (via `useIsMobile` hook)
-
-### Core Data Flow
+**Core data flow:**
 ```
-User types → CodeEditor → setCode(useKV) → DiagramPreview → renderMermaid → SVG output → Export/Copy
+CodeEditor → setCode(useLocalStorage) → DiagramPreview → renderMermaid() → SVG → Export
 ```
 
-## Key Files & Patterns
+**Project Structure:**
+```
+├── src/
+│   ├── components/      # React components
+│   │   └── ui/          # shadcn/ui components
+│   ├── hooks/           # Custom React hooks
+│   ├── lib/             # Utility functions
+│   ├── styles/          # CSS files (globals.css)
+│   ├── test/            # Test setup
+│   └── types/           # TypeScript types
+├── docs/                # Documentation (PRD, history)
+└── .devcontainer/       # Codespaces configuration
+```
 
-| Path | Purpose |
-|------|---------|
-| `src/App.tsx` | Main app shell, state management, layout switching |
-| `src/lib/mermaid.ts` | Mermaid initialization and rendering wrapper |
-| `src/lib/export.ts` | SVG/PNG/markdown export with style inlining |
-| `src/lib/constants.ts` | Default config, editor settings, diagram examples |
-| `src/types/index.ts` | TypeScript types for config, exports, examples |
+**Key files:**
+- [src/App.tsx](../src/App.tsx) - Central state hub, all `useLocalStorage` calls live here
+- [src/lib/mermaid.ts](../src/lib/mermaid.ts) - Mermaid rendering wrapper
+- [src/lib/export.ts](../src/lib/export.ts) - SVG/PNG export with style inlining
+- [src/lib/constants.ts](../src/lib/constants.ts) - Defaults and diagram examples
+- [src/types/index.ts](../src/types/index.ts) - TypeScript types (DiagramType, MermaidConfig, etc.)
 
-## Development Commands
+## Commands
 
 ```bash
-npm run dev      # Start Vite dev server (port 5000)
-npm run build    # TypeScript check + Vite production build
-npm run lint     # ESLint
-npm run kill     # Kill process on port 5000 if stuck
+npm run dev          # Vite dev server (port 5000)
+npm run build        # tsc + vite build
+npm run preview      # Preview production build
+npm run test         # vitest (single run)
+npm run test:watch   # vitest in watch mode
+npm run lint         # ESLint
+npm run clean        # Clear build cache
 ```
 
-## UI Components
+## Critical Patterns
 
-Uses **shadcn/ui** (new-york style) with Radix primitives. Components are in `src/components/ui/`.
-
-- Import UI components from `@/components/ui/[component]`
-- Use `cn()` from `@/lib/utils` for className merging
-- Icons: Use `@phosphor-icons/react` with `weight="duotone"` for consistency
-- Toasts: Use `sonner` via `toast.success()`, `toast.error()`
-
-### Adding shadcn Components
-Check `components.json` for config. The alias structure:
-- `@/components` → `src/components`
-- `@/lib` → `src/lib`
-- `@/hooks` → `src/hooks`
-
-## Spark-Specific Patterns
-
-### State Persistence
+### State Persistence (localStorage)
+All persisted state uses `useLocalStorage` from `@/hooks/use-local-storage`. Keys are defined only in `App.tsx`:
 ```tsx
-// Always use useKV for user data that should persist
-const [code, setCode] = useKV('mermaid-code', DEFAULT_DIAGRAM_CODE);
+const [code, setCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
+const [config, setConfig] = useLocalStorage<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
+const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
 ```
+**Never add `useLocalStorage` calls outside App.tsx** — pass state via props instead.
 
-### Required Imports
-```tsx
-import "@github/spark/spark" // Required in main.tsx
-import { useKV } from '@github/spark/hooks';
-```
+### Diagram Rendering
+`DiagramPreview` debounces rendering (300ms) and reports SVG via `onSvgRendered` callback. The mermaid module is lazily initialized in `lib/mermaid.ts`.
 
-### Vite Config
-The `sparkPlugin()` and `createIconImportProxy()` in `vite.config.ts` are **required**—do not remove.
+### Export Flow
+1. `DiagramPreview` emits SVG string via `onSvgRendered`
+2. `prepareSVGForExport()` inlines styles, adds xmlns
+3. PNG: render to canvas at configurable scale (1x-4x), default 3x
 
-## Export Implementation
+## UI Conventions
 
-PNG exports use 3x scale for high resolution. The export flow:
-1. Capture current SVG string from `DiagramPreview`
-2. Inline computed styles via `prepareSVGForExport()`
-3. Convert to canvas at 3x scale for PNG
-4. Trigger download or clipboard copy
+- **Components:** shadcn/ui (new-york style) in `src/components/ui/`
+- **Icons:** `@phosphor-icons/react` with `weight="duotone"`
+- **Toasts:** `import { toast } from 'sonner'` — use `toast.success()`, `toast.error()`
+- **Class merging:** `cn()` from `@/lib/utils`
+- **Styling:** Single CSS entry point at `src/styles/globals.css`
 
-## Mermaid Configuration
+## Testing
 
-Config is JSON stored via `useKV`. Support these themes: `default`, `forest`, `dark`, `neutral`, `base`. The `ConfigDialog` allows JSON editing with validation.
+Tests use Vitest + jsdom. Setup in [src/test/setup.ts](../src/test/setup.ts) mocks:
+- `mermaid` module (render, parse, initialize)
+- `navigator.clipboard` APIs
+- Canvas context for export tests
+
+Test files are colocated: `Component.tsx` → `Component.test.tsx`
 
 ## Adding Diagram Examples
 
-Add new examples to `DIAGRAM_EXAMPLES` array in `src/lib/constants.ts`:
+Add to `DIAGRAM_EXAMPLES` array in [src/lib/constants.ts](../src/lib/constants.ts):
 ```typescript
 {
   id: 'unique-id',
   name: 'Display Name',
-  type: 'flowchart', // DiagramType from types/index.ts
+  type: 'flowchart', // Must match DiagramType in types/index.ts
   description: 'Brief description',
-  code: `mermaid code here`,
+  code: `mermaid syntax here`,
 }
 ```
 
-## CSS & Theming
+## Keyboard Shortcuts
 
-- Tailwind 4 with CSS variables in `src/index.css`
-- Radix color scales imported in `src/styles/theme.css`
-- Custom theme overrides via `theme.json` (loaded by tailwind.config.js)
-- Editor background: `var(--editor-bg)`, foreground: `var(--editor-fg)`
+Defined in [src/hooks/use-keyboard-shortcuts.ts](../src/hooks/use-keyboard-shortcuts.ts). Add new shortcuts by extending the `KeyboardShortcuts` interface and handling in `handleKeyDown`.
+
+## URL Sharing
+
+[src/lib/share.ts](../src/lib/share.ts) encodes state as base64 in URL query params. Uses browser-native `btoa`/`atob` (no external compression library).
