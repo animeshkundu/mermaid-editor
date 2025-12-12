@@ -29,6 +29,7 @@ function App() {
   const [config, setConfig] = useKV<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
   const [editorSettings] = useKV<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [currentSvg, setCurrentSvg] = useState<string>('');
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -42,16 +43,18 @@ function App() {
 
   const handleExport = useCallback(async (format: ExportFormat) => {
     try {
-      const svgElement = previewRef.current?.querySelector('svg');
-      const svgContent = svgElement?.outerHTML;
+      if (!currentSvg && format !== 'markdown') {
+        toast.error('No diagram to export');
+        return;
+      }
 
-      await exportDiagram(format, code || '', svgContent);
+      await exportDiagram(format, code || '', currentSvg);
       toast.success(`Exported as ${format.toUpperCase()}`);
     } catch (error) {
       toast.error('Export failed');
       console.error(error);
     }
-  }, [code]);
+  }, [code, currentSvg]);
 
   const handleLoadExample = useCallback((example: DiagramExample) => {
     setCode(example.code);
@@ -68,20 +71,18 @@ function App() {
 
   const handleCopyImage = useCallback(async () => {
     try {
-      const svgElement = previewRef.current?.querySelector('svg');
-      const svgContent = svgElement?.outerHTML;
-
-      if (svgContent) {
-        await copyImageToClipboard(svgContent);
-        toast.success('Image copied to clipboard');
-      } else {
+      if (!currentSvg) {
         toast.error('No diagram to copy');
+        return;
       }
+
+      await copyImageToClipboard(currentSvg);
+      toast.success('Image copied to clipboard');
     } catch (error) {
       toast.error('Failed to copy image');
       console.error(error);
     }
-  }, []);
+  }, [currentSvg]);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
@@ -123,7 +124,11 @@ function App() {
             </Suspense>
           </TabsContent>
           <TabsContent value="preview" className="flex-1 m-0" ref={previewRef}>
-            <DiagramPreview code={code || ''} config={config || DEFAULT_MERMAID_CONFIG} />
+            <DiagramPreview 
+              code={code || ''} 
+              config={config || DEFAULT_MERMAID_CONFIG}
+              onSvgRendered={setCurrentSvg}
+            />
           </TabsContent>
         </Tabs>
       ) : (
@@ -151,7 +156,11 @@ function App() {
 
           <ResizablePanel defaultSize={50} minSize={30}>
             <div ref={previewRef} className="h-full">
-              <DiagramPreview code={code || ''} config={config || DEFAULT_MERMAID_CONFIG} />
+              <DiagramPreview 
+                code={code || ''} 
+                config={config || DEFAULT_MERMAID_CONFIG}
+                onSvgRendered={setCurrentSvg}
+              />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>

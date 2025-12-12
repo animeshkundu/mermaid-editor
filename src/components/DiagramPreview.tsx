@@ -9,9 +9,10 @@ import { PanZoomContainer } from '@/components/PanZoomContainer';
 interface DiagramPreviewProps {
   code: string;
   config: MermaidConfig;
+  onSvgRendered?: (svg: string) => void;
 }
 
-export const DiagramPreview = ({ code, config }: DiagramPreviewProps) => {
+export const DiagramPreview = ({ code, config, onSvgRendered }: DiagramPreviewProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -22,6 +23,7 @@ export const DiagramPreview = ({ code, config }: DiagramPreviewProps) => {
     if (!code.trim()) {
       setSvg('');
       setError('');
+      onSvgRendered?.('');
       return;
     }
 
@@ -33,13 +35,15 @@ export const DiagramPreview = ({ code, config }: DiagramPreviewProps) => {
       const result = await renderMermaid(code, elementId, config);
       setSvg(result.svg);
       setError('');
+      onSvgRendered?.(result.svg);
     } catch (err) {
       setError(extractErrorMessage(err));
       setSvg('');
+      onSvgRendered?.('');
     } finally {
       setIsRendering(false);
     }
-  }, [code, config]);
+  }, [code, config, onSvgRendered]);
 
   useEffect(() => {
     if (renderTimeoutRef.current) {

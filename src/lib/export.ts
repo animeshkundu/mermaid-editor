@@ -28,8 +28,8 @@ const prepareSVGForExport = (svgContent: string): string => {
   svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
   
-  const styles = svgDoc.querySelectorAll('style');
-  styles.forEach(style => {
+  const existingStyles = svgDoc.querySelectorAll('style');
+  existingStyles.forEach(style => {
     if (style.textContent) {
       style.textContent = style.textContent.replace(/@import[^;]+;/g, '');
     }
@@ -48,14 +48,21 @@ const getSVGDimensions = (svgContent: string): { width: number; height: number }
     return { width: 800, height: 600 };
   }
 
-  const viewBox = svgElement.getAttribute('viewBox');
   let width = parseFloat(svgElement.getAttribute('width') || '0');
   let height = parseFloat(svgElement.getAttribute('height') || '0');
 
+  const viewBox = svgElement.getAttribute('viewBox');
   if (viewBox) {
-    const [, , vbWidth, vbHeight] = viewBox.split(' ').map(parseFloat);
-    if (!width || width.toString().includes('%')) width = vbWidth;
-    if (!height || height.toString().includes('%')) height = vbHeight;
+    const parts = viewBox.split(/[\s,]+/).map(parseFloat);
+    if (parts.length === 4) {
+      const [, , vbWidth, vbHeight] = parts;
+      if (!width || isNaN(width) || String(svgElement.getAttribute('width') || '').includes('%')) {
+        width = vbWidth;
+      }
+      if (!height || isNaN(height) || String(svgElement.getAttribute('height') || '').includes('%')) {
+        height = vbHeight;
+      }
+    }
   }
 
   if (!width || !height || isNaN(width) || isNaN(height)) {
@@ -63,21 +70,25 @@ const getSVGDimensions = (svgContent: string): { width: number; height: number }
     height = 600;
   }
 
-  return { width, height };
+  return { width: Math.ceil(width), height: Math.ceil(height) };
 };
 
 export const exportPNG = async (svgContent: string, filename: string = 'diagram.png') => {
   return new Promise<void>((resolve, reject) => {
     try {
       const preparedSVG = prepareSVGForExport(svgContent);
-      const { width, height } = getSVGDimensions(svgContent);
+      const { width, height } = getSVGDimensions(preparedSVG);
 
-      const scale = 3;
+      const scale = 4;
       const canvas = document.createElement('canvas');
       canvas.width = width * scale;
       canvas.height = height * scale;
       
-      const ctx = canvas.getContext('2d', { alpha: false });
+      const ctx = canvas.getContext('2d', { 
+        alpha: false,
+        willReadFrequently: false 
+      });
+      
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
@@ -99,7 +110,7 @@ export const exportPNG = async (svgContent: string, filename: string = 'diagram.
       const timeoutId = setTimeout(() => {
         URL.revokeObjectURL(url);
         reject(new Error('Image load timeout'));
-      }, 10000);
+      }, 15000);
 
       img.onload = () => {
         clearTimeout(timeoutId);
@@ -147,14 +158,18 @@ export const copyImageToClipboard = async (svgContent: string): Promise<void> =>
   return new Promise<void>((resolve, reject) => {
     try {
       const preparedSVG = prepareSVGForExport(svgContent);
-      const { width, height } = getSVGDimensions(svgContent);
+      const { width, height } = getSVGDimensions(preparedSVG);
 
-      const scale = 3;
+      const scale = 4;
       const canvas = document.createElement('canvas');
       canvas.width = width * scale;
       canvas.height = height * scale;
       
-      const ctx = canvas.getContext('2d', { alpha: false });
+      const ctx = canvas.getContext('2d', { 
+        alpha: false,
+        willReadFrequently: false 
+      });
+      
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
@@ -176,7 +191,7 @@ export const copyImageToClipboard = async (svgContent: string): Promise<void> =>
       const timeoutId = setTimeout(() => {
         URL.revokeObjectURL(url);
         reject(new Error('Image load timeout'));
-      }, 10000);
+      }, 15000);
 
       img.onload = () => {
         clearTimeout(timeoutId);
