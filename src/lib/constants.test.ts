@@ -107,6 +107,12 @@ describe('Constants', () => {
           'quadrant',
           'requirement',
           'c4',
+          'sankey',
+          'xychart',
+          'block',
+          'packet',
+          'kanban',
+          'architecture',
         ];
         const hasValidType = validStarts.some((t) => topLines.includes(t));
         expect(hasValidType).toBe(true);

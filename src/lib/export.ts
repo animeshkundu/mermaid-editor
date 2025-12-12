@@ -24,11 +24,78 @@ const parseSVGString = (svgString: string): SVGSVGElement => {
   return svgElement as SVGSVGElement;
 };
 
+const parseNumericValue = (value: string | null): number => {
+  if (!value) return 0;
+  // Remove units like 'px', '%', 'em', etc. and parse the numeric part
+  const numericMatch = value.match(/^([\d.]+)/);
+  if (numericMatch) {
+    const num = parseFloat(numericMatch[1]);
+    // If it's a percentage, treat as invalid (need viewBox)
+    if (value.includes('%')) return 0;
+    return isNaN(num) ? 0 : num;
+  }
+  return 0;
+};
+
+const getSVGDimensions = (svgString: string): { width: number; height: number } => {
+  const svgElement = parseSVGString(svgString);
+  
+  const widthAttr = svgElement.getAttribute('width');
+  const heightAttr = svgElement.getAttribute('height');
+  
+  let width = parseNumericValue(widthAttr);
+  let height = parseNumericValue(heightAttr);
+
+  // Always check viewBox as it's more reliable for mermaid SVGs
+  const viewBox = svgElement.getAttribute('viewBox');
+  if (viewBox) {
+    const parts = viewBox.split(/[\s,]+/).map(parseFloat);
+    if (parts.length === 4) {
+      const [, , vbWidth, vbHeight] = parts;
+      // Prefer viewBox dimensions if width/height are missing, zero, or percentages
+      if (!width || width === 0) {
+        width = vbWidth;
+      }
+      if (!height || height === 0) {
+        height = vbHeight;
+      }
+    }
+  }
+
+  // Try to get bounding box from the SVG content if still no dimensions
+  if (!width || !height || isNaN(width) || isNaN(height) || width === 0 || height === 0) {
+    // Check for style attribute with width/height
+    const style = svgElement.getAttribute('style') || '';
+    const styleWidth = style.match(/width:\s*([\d.]+)/);
+    const styleHeight = style.match(/height:\s*([\d.]+)/);
+    if (styleWidth) width = parseFloat(styleWidth[1]) || width;
+    if (styleHeight) height = parseFloat(styleHeight[1]) || height;
+  }
+
+  // Final fallback
+  if (!width || !height || isNaN(width) || isNaN(height) || width === 0 || height === 0) {
+    width = 800;
+    height = 600;
+  }
+
+  return { width: Math.ceil(width), height: Math.ceil(height) };
+};
+
 const prepareSVGForExport = (svgString: string): string => {
   const svgElement = parseSVGString(svgString);
   
   svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  
+  // Get proper dimensions and set them explicitly
+  const { width, height } = getSVGDimensions(svgString);
+  svgElement.setAttribute('width', String(width));
+  svgElement.setAttribute('height', String(height));
+  
+  // Ensure viewBox is set for proper scaling
+  if (!svgElement.getAttribute('viewBox')) {
+    svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  }
   
   const existingStyle = svgElement.querySelector('style');
   if (existingStyle && existingStyle.textContent) {
@@ -37,34 +104,6 @@ const prepareSVGForExport = (svgString: string): string => {
   
   const serializer = new XMLSerializer();
   return serializer.serializeToString(svgElement);
-};
-
-const getSVGDimensions = (svgString: string): { width: number; height: number } => {
-  const svgElement = parseSVGString(svgString);
-  
-  let width = parseFloat(svgElement.getAttribute('width') || '0');
-  let height = parseFloat(svgElement.getAttribute('height') || '0');
-
-  const viewBox = svgElement.getAttribute('viewBox');
-  if (viewBox) {
-    const parts = viewBox.split(/[\s,]+/).map(parseFloat);
-    if (parts.length === 4) {
-      const [, , vbWidth, vbHeight] = parts;
-      if (!width || isNaN(width) || width === 0) {
-        width = vbWidth;
-      }
-      if (!height || isNaN(height) || height === 0) {
-        height = vbHeight;
-      }
-    }
-  }
-
-  if (!width || !height || isNaN(width) || isNaN(height) || width === 0 || height === 0) {
-    width = 800;
-    height = 600;
-  }
-
-  return { width: Math.ceil(width), height: Math.ceil(height) };
 };
 
 const svgStringToCanvas = (
