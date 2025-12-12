@@ -41,9 +41,18 @@ export const MERMAID_THEMES: { value: MermaidTheme; label: string }[] = [
   { value: 'base', label: 'Base' },
 ];
 
+export type MermaidLook = 'classic' | 'handDrawn';
+
+export const MERMAID_LOOKS: { value: MermaidLook; label: string }[] = [
+  { value: 'classic', label: 'Classic' },
+  { value: 'handDrawn', label: 'Hand Drawn' },
+];
+
 export interface MermaidConfig {
   theme?: MermaidTheme;
+  look?: MermaidLook;
   themeVariables?: Record<string, string>;
+  fontFamily?: string;
   flowchart?: {
     curve?: string;
     padding?: number;

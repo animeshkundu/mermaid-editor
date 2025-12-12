@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, ReactNode } from 'react';
+import { useRef, useEffect, useState, ReactNode, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { MagnifyingGlassMinus, MagnifyingGlassPlus, ArrowsOut } from '@phosphor-icons/react';
 
@@ -14,17 +14,18 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  const handleWheel = (e: WheelEvent) => {
+  const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY * -0.001;
-    const newScale = Math.min(Math.max(0.1, scale + delta), 3);
-    setScale(newScale);
-  };
+    setScale(s => Math.min(Math.max(0.1, s + delta), 3));
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0 && e.target === contentRef.current) {
+    // Allow dragging from anywhere in the container
+    if (e.button === 0) {
       setIsDragging(true);
       setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+      e.preventDefault();
     }
   };
 
@@ -38,6 +39,29 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
   };
 
   const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Touch support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isDragging && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y,
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
     setIsDragging(false);
   };
 
@@ -60,7 +84,7 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
       container.addEventListener('wheel', handleWheel, { passive: false });
       return () => container.removeEventListener('wheel', handleWheel);
     }
-  }, [scale]);
+  }, [handleWheel]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -71,9 +95,13 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           ref={contentRef}
+          className="h-full w-full flex items-center justify-center"
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: 'center center',

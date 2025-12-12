@@ -8,7 +8,10 @@ let isInitialized = false;
 export const initializeMermaid = (config: MermaidConfig = {}) => {
   mermaid.initialize({
     startOnLoad: false,
-    theme: config.theme || 'default',
+    theme: config.theme || 'base',
+    look: config.look || 'classic',
+    fontFamily: config.fontFamily || '"Inter", "Segoe UI", sans-serif',
+    themeVariables: config.themeVariables || {},
     ...config,
   } as any);
   isInitialized = true;

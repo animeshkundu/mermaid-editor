@@ -8,10 +8,51 @@ export const DEFAULT_DIAGRAM_CODE = `flowchart TD
     B ---->|No| E[End]`;
 
 export const DEFAULT_MERMAID_CONFIG: MermaidConfig = {
-  theme: 'default',
-  themeVariables: {},
+  theme: 'base',
+  look: 'classic',
+  fontFamily: '"Inter", "Segoe UI", sans-serif',
+  themeVariables: {
+    // Modern, beautiful color palette inspired by MermaidChart
+    primaryColor: '#4f46e5',       // Indigo - main nodes
+    primaryTextColor: '#ffffff',    // White text on primary
+    primaryBorderColor: '#3730a3',  // Darker indigo border
+    secondaryColor: '#f0abfc',      // Pink/fuchsia for secondary
+    secondaryTextColor: '#1e1e1e',  // Dark text on secondary
+    secondaryBorderColor: '#c026d3', // Fuchsia border
+    tertiaryColor: '#fef3c7',       // Warm amber for tertiary/subgraphs
+    tertiaryTextColor: '#1e1e1e',   // Dark text
+    tertiaryBorderColor: '#f59e0b', // Amber border
+    lineColor: '#6366f1',           // Indigo for lines
+    textColor: '#1e1e1e',           // Main text color
+    mainBkg: '#4f46e5',             // Main background
+    nodeBorder: '#3730a3',          // Node borders
+    clusterBkg: '#fef3c7',          // Subgraph background
+    clusterBorder: '#f59e0b',       // Subgraph border
+    titleColor: '#1e1e1e',          // Title color
+    edgeLabelBackground: '#ffffff', // Edge label background
+    // Note styling
+    noteBkgColor: '#fef9c3',        // Light yellow
+    noteTextColor: '#1e1e1e',
+    noteBorderColor: '#facc15',
+    // Actor/participant styling for sequence diagrams
+    actorBkg: '#4f46e5',
+    actorBorder: '#3730a3',
+    actorTextColor: '#ffffff',
+    actorLineColor: '#94a3b8',
+    // Sequence diagram specific
+    signalColor: '#1e1e1e',
+    signalTextColor: '#1e1e1e',
+    labelBoxBkgColor: '#4f46e5',
+    labelBoxBorderColor: '#3730a3',
+    labelTextColor: '#ffffff',
+    loopTextColor: '#1e1e1e',
+    activationBorderColor: '#c026d3',
+    activationBkgColor: '#f5d0fe',
+    sequenceNumberColor: '#ffffff',
+  },
   flowchart: {
     curve: 'basis',
+    padding: 20,
   },
 };
 
@@ -60,8 +101,13 @@ export const DIAGRAM_EXAMPLES: DiagramExample[] = [
     type: 'sequence',
     description: 'Basic sequence diagram showing interactions',
     code: `sequenceDiagram
+    box rgb(79, 70, 229) Users
     participant Alice
+    participant John
+    end
+    box rgb(16, 185, 129) Services
     participant Bob
+    end
     Alice->>John: Hello John, how are you?
     loop HealthCheck
         John->>John: Fight against hypochondria
