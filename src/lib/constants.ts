@@ -248,4 +248,159 @@ export const DIAGRAM_EXAMPLES: DiagramExample[] = [
     Campaign E: [0.40, 0.34]
     Campaign F: [0.35, 0.78]`,
   },
+  {
+    id: 'requirement',
+    name: 'Requirement Diagram',
+    type: 'requirement',
+    description: 'Requirements and their relationships',
+    code: `requirementDiagram
+    requirement test_req {
+    id: 1
+    text: the test text.
+    risk: high
+    verifymethod: test
+    }
+
+    element test_entity {
+    type: simulation
+    }
+
+    test_entity - satisfies -> test_req`,
+  },
+  {
+    id: 'c4-context',
+    name: 'C4 Context Diagram',
+    type: 'c4',
+    description: 'C4 model system context diagram',
+    code: `C4Context
+    title System Context diagram for Internet Banking System
+    Enterprise_Boundary(b0, "BankBoundary") {
+        Person(customerA, "Banking Customer A", "A customer of the bank")
+        Person(customerB, "Banking Customer B")
+        System(SystemAA, "Internet Banking System", "Allows customers to view account")
+    }
+    
+    System_Ext(SystemC, "E-mail system", "Sends e-mails")
+    
+    Rel(customerA, SystemAA, "Uses")
+    Rel(SystemAA, SystemC, "Sends e-mails")`,
+  },
+  {
+    id: 'sankey',
+    name: 'Sankey Diagram',
+    type: 'sankey',
+    description: 'Flow diagram showing quantities',
+    code: `sankey-beta
+
+Agricultural 'waste',Bio-conversion,124.729
+Bio-conversion,Liquid,0.597
+Bio-conversion,Losses,26.862
+Bio-conversion,Solid,280.322
+Bio-conversion,Gas,81.144
+Electricity grid,Over generation / exports,104.453
+Electricity grid,Heating and cooling - Loss,113.726
+Electricity grid,H2 conversion,27.14`,
+  },
+  {
+    id: 'xychart',
+    name: 'XY Chart',
+    type: 'xychart',
+    description: 'Line and bar charts with XY data',
+    code: `xychart-beta
+    title "Sales Revenue"
+    x-axis [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec]
+    y-axis "Revenue (in $)" 4000 --> 11000
+    bar [5000, 6000, 7500, 8200, 9500, 10500, 11000, 10200, 9200, 8500, 7000, 6000]
+    line [5000, 6000, 7500, 8200, 9500, 10500, 11000, 10200, 9200, 8500, 7000, 6000]`,
+  },
+  {
+    id: 'block',
+    name: 'Block Diagram',
+    type: 'block',
+    description: 'Block-based architecture diagram',
+    code: `block-beta
+columns 1
+  db(("DB"))
+  blockArrowId6<["&nbsp;&nbsp;&nbsp;"]>(down)
+  block:ID
+    A
+    B["A wide one in the middle"]
+    C
+  end
+  space
+  D
+  ID --> D
+  C --> D
+  style B fill:#969,stroke:#333,stroke-width:4px`,
+  },
+  {
+    id: 'packet',
+    name: 'Packet Diagram',
+    type: 'packet',
+    description: 'Network packet structure diagram',
+    code: `packet-beta
+0-15: "Source Port"
+16-31: "Destination Port"
+32-63: "Sequence Number"
+64-95: "Acknowledgment Number"
+96-99: "Data Offset"
+100-105: "Reserved"
+106: "URG"
+107: "ACK"
+108: "PSH"
+109: "RST"
+110: "SYN"
+111: "FIN"
+112-127: "Window Size"
+128-143: "Checksum"
+144-159: "Urgent Pointer"
+160-191: "(Options and Padding)"
+192-255: "Data (variable length)"`,
+  },
+  {
+    id: 'kanban',
+    name: 'Kanban Board',
+    type: 'kanban',
+    description: 'Kanban board for task management',
+    code: `kanban
+  Todo
+    id1[Design new feature]
+    id2[Refactor code]
+  "In Progress"
+    id3[Write tests]
+  Done
+    id4[Deploy to staging]`,
+  },
+  {
+    id: 'architecture',
+    name: 'Architecture Diagram',
+    type: 'architecture',
+    description: 'System architecture with icons',
+    code: `architecture-beta
+    group api(cloud)[API]
+
+    service db(database)[Database] in api
+    service disk1(disk)[Storage] in api
+    service disk2(disk)[Storage] in api
+    service server(server)[Server] in api
+
+    db:L -- R:server
+    disk1:T -- B:server
+    disk2:T -- B:db`,
+  },
 ];
+
+// Keyboard shortcut definitions for help/documentation
+export const KEYBOARD_SHORTCUTS = [
+  { keys: ['Ctrl', 'Z'], action: 'Undo' },
+  { keys: ['Ctrl', 'Shift', 'Z'], action: 'Redo' },
+  { keys: ['Ctrl', 'Y'], action: 'Redo (alternative)' },
+  { keys: ['Ctrl', 'S'], action: 'Export as PNG' },
+  { keys: ['Ctrl', 'Shift', 'C'], action: 'Copy code' },
+  { keys: ['Ctrl', ','], action: 'Open configuration' },
+  { keys: ['?'], action: 'Show keyboard shortcuts' },
+  { keys: ['F11'], action: 'Toggle fullscreen preview' },
+  { keys: ['Escape'], action: 'Exit fullscreen' },
+  { keys: ['Ctrl', '\\'], action: 'Toggle layout direction' },
+];
+

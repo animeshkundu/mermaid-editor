@@ -84,7 +84,11 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
         </div>
       </div>
 
-      <div className="absolute bottom-4 right-4 flex gap-2">
+      {/* Zoom controls with percentage display */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-2">
+        <span className="text-xs font-mono bg-secondary/80 px-2 py-1 rounded shadow-sm min-w-[4rem] text-center">
+          {Math.round(scale * 100)}%
+        </span>
         <Button
           size="sm"
           variant="secondary"

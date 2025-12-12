@@ -136,11 +136,14 @@ export const exportSVG = (svgString: string, filename: string = 'diagram.svg') =
   downloadFile(preparedSvg, filename, 'image/svg+xml');
 };
 
+export type PNGScale = 1 | 2 | 3 | 4;
+
 export const exportPNG = async (
   svgString: string,
-  filename: string = 'diagram.png'
+  filename: string = 'diagram.png',
+  scale: PNGScale = 3
 ): Promise<void> => {
-  const canvas = await svgStringToCanvas(svgString, 3);
+  const canvas = await svgStringToCanvas(svgString, scale);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -188,10 +191,15 @@ export const exportMarkdown = (code: string, filename: string = 'diagram.md') =>
   downloadFile(markdown, filename, 'text/markdown');
 };
 
+export interface ExportOptions {
+  scale?: PNGScale;
+}
+
 export const exportDiagram = async (
   format: ExportFormat,
   code: string,
-  svgString?: string
+  svgString?: string,
+  options: ExportOptions = {}
 ) => {
   const timestamp = new Date().toISOString().slice(0, 10);
   const filename = `mermaid-${timestamp}`;
@@ -204,7 +212,7 @@ export const exportDiagram = async (
       break;
     case 'png':
       if (svgString) {
-        await exportPNG(svgString, `${filename}.png`);
+        await exportPNG(svgString, `${filename}.png`, options.scale || 3);
       }
       break;
     case 'markdown':

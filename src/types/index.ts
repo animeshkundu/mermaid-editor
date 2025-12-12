@@ -12,12 +12,37 @@ export type DiagramType =
   | 'timeline'
   | 'quadrant'
   | 'requirement'
-  | 'c4';
+  | 'c4'
+  | 'sankey'
+  | 'xychart'
+  | 'block'
+  | 'packet'
+  | 'kanban'
+  | 'architecture';
 
 export type ExportFormat = 'svg' | 'png' | 'markdown';
 
+export type PNGScale = 1 | 2 | 3 | 4;
+
+export const PNG_SCALE_OPTIONS: { value: PNGScale; label: string }[] = [
+  { value: 1, label: '1x (Normal)' },
+  { value: 2, label: '2x (High)' },
+  { value: 3, label: '3x (Very High)' },
+  { value: 4, label: '4x (Ultra)' },
+];
+
+export type MermaidTheme = 'default' | 'forest' | 'dark' | 'neutral' | 'base';
+
+export const MERMAID_THEMES: { value: MermaidTheme; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'forest', label: 'Forest' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'neutral', label: 'Neutral' },
+  { value: 'base', label: 'Base' },
+];
+
 export interface MermaidConfig {
-  theme?: 'default' | 'forest' | 'dark' | 'neutral' | 'base';
+  theme?: MermaidTheme;
   themeVariables?: Record<string, string>;
   flowchart?: {
     curve?: string;
