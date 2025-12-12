@@ -97,76 +97,173 @@ const prepareSVGForExport = (svgString: string): string => {
     svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
   }
   
+  // Remove @import rules that won't work in isolated SVG
   const existingStyle = svgElement.querySelector('style');
   if (existingStyle && existingStyle.textContent) {
     existingStyle.textContent = existingStyle.textContent.replace(/@import[^;]+;/g, '');
+  }
+  
+  // Inline computed styles on all elements to ensure they render correctly
+  // when the SVG is used as an image (which doesn't have access to page CSS)
+  const elementsToStyle = svgElement.querySelectorAll('*');
+  
+  // Create a temporary container to compute styles
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'absolute';
+  tempContainer.style.left = '-9999px';
+  tempContainer.style.top = '-9999px';
+  document.body.appendChild(tempContainer);
+  
+  // Clone the SVG and add to DOM to compute styles
+  const svgClone = svgElement.cloneNode(true) as SVGSVGElement;
+  tempContainer.appendChild(svgClone);
+  
+  // Important CSS properties to inline for SVG rendering
+  const cssProperties = [
+    'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap',
+    'stroke-linejoin', 'opacity', 'fill-opacity', 'stroke-opacity',
+    'font-family', 'font-size', 'font-weight', 'font-style',
+    'text-anchor', 'dominant-baseline', 'alignment-baseline',
+    'visibility', 'display'
+  ];
+  
+  const clonedElements = svgClone.querySelectorAll('*');
+  clonedElements.forEach((clonedEl, index) => {
+    const originalEl = elementsToStyle[index];
+    if (!originalEl) return;
+    
+    const computedStyle = window.getComputedStyle(clonedEl);
+    const inlineStyles: string[] = [];
+    
+    cssProperties.forEach(prop => {
+      const value = computedStyle.getPropertyValue(prop);
+      if (value && value !== 'none' && value !== '' && value !== 'normal') {
+        // Skip default/inherited values that don't affect rendering
+        if (prop === 'fill' && value === 'rgb(0, 0, 0)') return; // default black
+        if (prop === 'stroke' && value === 'none') return;
+        if (prop === 'opacity' && value === '1') return;
+        if (prop === 'visibility' && value === 'visible') return;
+        if (prop === 'display' && value === 'inline') return;
+        
+        inlineStyles.push(`${prop}: ${value}`);
+      }
+    });
+    
+    if (inlineStyles.length > 0) {
+      const existingStyle = originalEl.getAttribute('style') || '';
+      const newStyle = existingStyle 
+        ? `${existingStyle}; ${inlineStyles.join('; ')}`
+        : inlineStyles.join('; ');
+      originalEl.setAttribute('style', newStyle);
+    }
+  });
+  
+  // Clean up
+  document.body.removeChild(tempContainer);
+  
+  // Add a white background rect if not present (ensures no transparency issues)
+  const hasBackground = svgElement.querySelector('rect[class*="background"]') || 
+                        svgElement.querySelector('rect:first-child');
+  if (!hasBackground) {
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('width', '100%');
+    bgRect.setAttribute('height', '100%');
+    bgRect.setAttribute('fill', '#ffffff');
+    svgElement.insertBefore(bgRect, svgElement.firstChild);
   }
   
   const serializer = new XMLSerializer();
   return serializer.serializeToString(svgElement);
 };
 
-const svgStringToCanvas = (
+// Browser canvas size limits (conservative estimates)
+// Most browsers limit canvas to ~16384x16384 pixels or ~268 million total pixels
+const MAX_CANVAS_DIMENSION = 16384;
+const MAX_CANVAS_PIXELS = 268435456; // 16384 * 16384
+
+/**
+ * Calculate the maximum safe scale for a canvas given its dimensions
+ */
+const getMaxSafeScale = (width: number, height: number, requestedScale: number): number => {
+  let scale = requestedScale;
+  
+  // Reduce scale until we're within browser limits
+  while (scale > 1) {
+    const scaledWidth = width * scale;
+    const scaledHeight = height * scale;
+    const totalPixels = scaledWidth * scaledHeight;
+    
+    if (scaledWidth <= MAX_CANVAS_DIMENSION && 
+        scaledHeight <= MAX_CANVAS_DIMENSION && 
+        totalPixels <= MAX_CANVAS_PIXELS) {
+      break;
+    }
+    scale--;
+  }
+  
+  return scale;
+};
+
+const svgStringToCanvas = async (
   svgString: string,
   scale: number = 3
 ): Promise<HTMLCanvasElement> => {
+  const preparedSvg = prepareSVGForExport(svgString);
+  const { width, height } = getSVGDimensions(svgString);
+
+  // Auto-reduce scale for very large diagrams to stay within browser limits
+  const safeScale = getMaxSafeScale(width, height, scale);
+  if (safeScale < scale) {
+    console.warn(`Canvas too large at ${scale}x scale. Reduced to ${safeScale}x.`);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width * safeScale;
+  canvas.height = height * safeScale;
+
+  const ctx = canvas.getContext('2d', {
+    alpha: false,
+    willReadFrequently: false,
+  });
+
+  if (!ctx) {
+    throw new Error('Failed to get canvas context');
+  }
+
+  // Fill white background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
   return new Promise((resolve, reject) => {
-    try {
-      const preparedSvg = prepareSVGForExport(svgString);
-      const { width, height } = getSVGDimensions(svgString);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    const svgBase64 = btoa(unescape(encodeURIComponent(preparedSvg)));
+    const svgDataUrl = 'data:image/svg+xml;base64,' + svgBase64;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+    const timeoutId = setTimeout(() => {
+      reject(new Error('Image load timeout'));
+    }, 10000);
 
-      const ctx = canvas.getContext('2d', {
-        alpha: false,
-        willReadFrequently: false,
-      });
-
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'));
-        return;
+    img.onload = () => {
+      clearTimeout(timeoutId);
+      try {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas);
+      } catch (err) {
+        reject(err);
       }
+    };
 
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    img.onerror = () => {
+      clearTimeout(timeoutId);
+      reject(new Error('Failed to load SVG'));
+    };
 
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-
-      const img = new Image();
-      const svgBlob = new Blob([preparedSvg], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-
-      const timeoutId = setTimeout(() => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Image load timeout'));
-      }, 10000);
-
-      img.onload = () => {
-        clearTimeout(timeoutId);
-
-        try {
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          URL.revokeObjectURL(url);
-          resolve(canvas);
-        } catch (err) {
-          URL.revokeObjectURL(url);
-          reject(err);
-        }
-      };
-
-      img.onerror = () => {
-        clearTimeout(timeoutId);
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to load SVG'));
-      };
-
-      img.src = url;
-    } catch (err) {
-      reject(err);
-    }
+    img.src = svgDataUrl;
   });
 };
 
