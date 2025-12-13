@@ -39,13 +39,25 @@ export class FlowchartParser implements DiagramParser<GraphVisualState> {
       // Parse the diagram - this will throw if invalid
       const { svg } = await mermaid.render(id, code);
       
-      // Access the internal diagram structure (hacky but necessary)
-      // Mermaid stores parsed diagrams in a global registry
-      const diagram = (mermaid as any).diagrams?.[id] || (window as any).mermaidAPI?.diagrams?.[id];
+      // Try multiple ways to access the diagram database
+      let diagram = (mermaid as any).diagrams?.[id];
+      
+      if (!diagram) {
+        // Try mermaidAPI global
+        diagram = (window as any).mermaidAPI?.diagrams?.[id];
+      }
+      
+      if (!diagram) {
+        // Try accessing through mermaid's internal state
+        const internalMermaid = (mermaid as any);
+        diagram = internalMermaid.lastDiagram || internalMermaid._lastDiagram;
+      }
       
       if (!diagram || !diagram.db) {
-        console.error('Failed to access diagram database');
-        return null;
+        console.error('Failed to access diagram database. Available diagram keys:', 
+          Object.keys((mermaid as any).diagrams || {}));
+        console.warn('Falling back to regex-based parsing');
+        return this.fallbackParse(code);
       }
 
       const db = diagram.db;
@@ -174,6 +186,101 @@ export class FlowchartParser implements DiagramParser<GraphVisualState> {
     };
 
     return shapeMap[mermaidType] || 'rectangle';
+  }
+
+  /**
+   * Fallback parser using regex when diagram database is not accessible
+   */
+  private fallbackParse(code: string): GraphVisualState {
+    const nodes: VisualNode[] = [];
+    const edges: VisualEdge[] = [];
+    const nodePositions = this.extractPositionMetadata(code);
+    const lines = code.split('\n');
+    const nodeIds = new Set<string>();
+
+    // Extract nodes - look for patterns like: A[Label], B{Label}, C(Label), etc.
+    const nodeRegex = /([A-Za-z0-9_]+)([\[\(\{<][\[\(]?)([^\]\)\}>]+)([\]\)\}>][\]\)]?)/g;
+    
+    lines.forEach((line, idx) => {
+      // Skip flowchart declaration and edge-only lines
+      if (line.trim().startsWith('flowchart') || line.includes('-->') || line.includes('-.->')) {
+        // But still check for inline node definitions in edges
+        let match;
+        while ((match = nodeRegex.exec(line)) !== null) {
+          const [, id, openBracket, label, closeBracket] = match;
+          if (!nodeIds.has(id)) {
+            nodeIds.add(id);
+            const shape = this.detectShapeFromBrackets(openBracket, closeBracket);
+            const metadata = nodePositions.get(id);
+            const position = metadata?.position || this.generateDefaultPosition(nodes.length, 10);
+
+            nodes.push({
+              id,
+              label: label.trim(),
+              x: position.x,
+              y: position.y,
+              shape,
+            });
+          }
+        }
+      }
+    });
+
+    // Extract edges - look for patterns like: A --> B, A -.-> B, etc.
+    const edgeRegex = /([A-Za-z0-9_]+)\s*(-->|==>|\.\.>|-\.->|---)\|?([^\|]*)\|?\s*([A-Za-z0-9_]+)/g;
+    
+    lines.forEach(line => {
+      let match;
+      while ((match = edgeRegex.exec(line)) !== null) {
+        const [, source, connector, label, target] = match;
+        
+        // Determine edge type from connector
+        let type: EdgeType = 'solid';
+        if (connector.includes('.')) type = 'dotted';
+        else if (connector.includes('==')) type = 'thick';
+        else if (connector === '---') type = 'open';
+
+        edges.push({
+          id: `${source}-${target}-${edges.length}`,
+          source,
+          target,
+          label: label?.trim() || '',
+          type,
+        });
+      }
+    });
+
+    return {
+      paradigm: 'graph',
+      nodes,
+      edges,
+    };
+  }
+
+  /**
+   * Detect shape from bracket characters
+   */
+  private detectShapeFromBrackets(open: string, close: string): MermaidShape {
+    const brackets = open + close;
+    
+    const shapeMap: Record<string, MermaidShape> = {
+      '[]': 'rectangle',
+      '()': 'rounded',
+      '([])': 'stadium',
+      '{}': 'rhombus',
+      '(())': 'circle',
+      '>]': 'asymmetric',
+      '{{}}': 'hexagon',
+      '[//]': 'parallelogram',
+      '[\\\\]': 'parallelogram-alt',
+      '[\\/]': 'trapezoid',
+      '[/\\]': 'trapezoid-alt',
+      '((()))': 'double-circle',
+      '[[]]': 'subroutine',
+      '[()]': 'cylindrical',
+    };
+
+    return shapeMap[brackets] || 'rectangle';
   }
 
   /**
