@@ -90,3 +90,6 @@ export interface DiagramExample {
   code: string;
   description: string;
 }
+
+// Visual Editor Types
+export * from './visual-editor';

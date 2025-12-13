@@ -43,8 +43,11 @@ import {
   CornersOut,
   Sun,
   Moon,
+  Cursor,
 } from '@phosphor-icons/react';
-import { ExportFormat, DiagramExample, MermaidTheme, MERMAID_THEMES, PNGScale, PNG_SCALE_OPTIONS } from '@/types';
+import { ExportFormat, DiagramExample, MermaidTheme, MERMAID_THEMES, PNGScale, PNG_SCALE_OPTIONS, EditMode } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DIAGRAM_EXAMPLES } from '@/lib/constants';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -66,12 +69,15 @@ interface ToolbarProps {
   onLayoutChange?: (direction: LayoutDirection) => void;
   onFullscreen?: () => void;
   onAppThemeChange?: (theme: AppTheme) => void;
+  onEditModeChange?: (mode: EditMode) => void;
   currentCode: string;
   currentTheme?: MermaidTheme;
   currentLayout?: LayoutDirection;
   currentAppTheme?: AppTheme;
+  currentEditMode?: EditMode;
   canUndo?: boolean;
   canRedo?: boolean;
+  isVisualSupported?: boolean;
 }
 
 export const Toolbar = ({
@@ -88,11 +94,14 @@ export const Toolbar = ({
   onLayoutChange,
   onFullscreen,
   onAppThemeChange,
+  onEditModeChange,
   currentTheme = 'default',
   currentLayout = 'horizontal',
   currentAppTheme = 'light',
+  currentEditMode = 'text',
   canUndo = false,
   canRedo = false,
+  isVisualSupported = true,
 }: ToolbarProps) => {
   const isMobile = useIsMobile();
 
@@ -316,6 +325,48 @@ export const Toolbar = ({
           </DropdownMenu>
 
           <div className="w-px h-6 bg-border mx-1" />
+
+          {/* Edit Mode Toggle */}
+          {onEditModeChange && (
+            <>
+              <ToggleGroup
+                type="single"
+                value={currentEditMode}
+                onValueChange={(value) => {
+                  if (value && value !== currentEditMode) {
+                    onEditModeChange(value as EditMode);
+                  }
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ToggleGroupItem value="text" aria-label="Code mode">
+                      <Code className="h-4 w-4" weight="duotone" />
+                    </ToggleGroupItem>
+                  </TooltipTrigger>
+                  <TooltipContent>Code Mode</TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <ToggleGroupItem 
+                      value="visual" 
+                      aria-label="Visual mode"
+                      disabled={!isVisualSupported}
+                    >
+                      <Cursor className="h-4 w-4" weight="duotone" />
+                      <Badge variant="secondary" className="ml-1 px-1 text-[10px] h-4">
+                        BETA
+                      </Badge>
+                    </ToggleGroupItem>
+                  </TooltipTrigger>
+                  <TooltipContent>Visual Mode (Beta)</TooltipContent>
+                </Tooltip>
+              </ToggleGroup>
+
+              <div className="w-px h-6 bg-border mx-1" />
+            </>
+          )}
 
           {/* Copy buttons */}
            <Tooltip>

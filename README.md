@@ -18,6 +18,7 @@ A modern, client-side editor for creating [Mermaid](https://mermaid.js.org/) dia
 - ↩️ **Undo/Redo** - Full history support with `Ctrl+Z` / `Ctrl+Y`
 - 📱 **Responsive** - Tabbed interface on mobile, resizable panels on desktop
 - 🌙 **Dark Mode** - Light and dark application themes
+- ✨ **Visual Editor (Beta)** - Drag-and-drop visual editing for supported diagram types
 
 ## Getting Started
 
@@ -80,6 +81,27 @@ See [docs/integration-testing.md](./docs/integration-testing.md) for details on 
 - Packet Diagram
 - Kanban Board
 - Architecture Diagram
+
+## Visual Editor (Beta)
+
+The Visual Editor provides an intuitive drag-and-drop interface for creating Mermaid diagrams. Toggle between Code and Visual modes using the toolbar.
+
+### Usage
+
+1. Click the **Visual** button in the toolbar (with BETA badge)
+2. A third panel will appear showing the visual editor interface
+3. Currently in Phase 0: Foundation—visual editors are coming soon
+4. Toggle back to **Code** mode for traditional text editing
+
+### Roadmap
+
+- **Phase 0** (Current): Foundation - UI framework and mode toggle
+- **Phase 1**: Flowchart visual editor with drag-and-drop nodes
+- **Phase 2**: Sequence diagram editor
+- **Phase 3**: Gantt chart editor
+- **Phase 4**: Additional diagram types
+
+For detailed implementation plans, see [docs/VISUAL_EDITOR_PRD.md](docs/VISUAL_EDITOR_PRD.md).
 
 ## Keyboard Shortcuts
 
