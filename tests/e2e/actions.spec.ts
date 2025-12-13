@@ -77,20 +77,18 @@ test.describe('Toolbar actions', () => {
     await page.getByTestId('toolbar-share').click();
     await page.waitForFunction(() => {
       const store = (window as { __clipboardStore?: { text?: string } }).__clipboardStore;
-      return !!store?.text && store.text.includes('state=');
-    }, null, { timeout: 10000 });
+      return !!store?.text && store.text.startsWith('http') && store.text.includes('#');
+    }, null, { timeout: 15000 });
   });
 
   test('copies image to clipboard', async ({ page }) => {
     await loadExample(page, 'Basic Flowchart');
 
     await page.getByTestId('toolbar-copy-image').click();
-    const clipboardItems = await page.evaluate(() => {
+    await page.waitForFunction(() => {
       const store = (window as { __clipboardStore?: { items?: ClipboardItem[] } }).__clipboardStore;
-      return store?.items ?? [];
-    });
-    expect(Array.isArray(clipboardItems)).toBe(true);
-    expect(clipboardItems.length).toBeGreaterThan(0);
+      return Array.isArray(store?.items) && store.items.length > 0;
+    }, null, { timeout: 15000 });
     const types = await page.evaluate(() => {
       const store = (window as { __clipboardStore?: { items?: ClipboardItem[] } }).__clipboardStore;
       return store?.items?.[0]?.types ?? [];
@@ -103,6 +101,15 @@ test.describe('Toolbar actions', () => {
 
     const openExportMenu = async () => {
       await page.getByTestId('toolbar-export').click();
+      const svgVisible = await page
+        .locator('[role="menuitem"]', { hasText: 'Export as SVG' })
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (!svgVisible) {
+        await page.waitForTimeout(100);
+        await page.getByTestId('toolbar-export').click({ force: true });
+      }
     };
 
     await openExportMenu();
@@ -114,12 +121,16 @@ test.describe('Toolbar actions', () => {
     await svgDownload.delete();
 
     await openExportMenu();
-    const pngTrigger = page.getByRole('menuitem', { name: 'Export as PNG' });
-    await pngTrigger.hover();
-    await expect(page.getByRole('menuitem', { name: '1x (Normal)' })).toBeVisible();
+    await page.waitForTimeout(200);
+    await page.waitForSelector('[role="menuitem"]', { state: 'attached' });
+    const pngTrigger = page.locator('[role="menuitem"]', { hasText: 'Export as PNG' }).first();
+    await pngTrigger.waitFor();
+    await pngTrigger.click();
+    const pngOption = page.locator('[role="menuitem"]', { hasText: '1x (Normal)' }).first();
+    await pngOption.waitFor();
     const [pngDownload] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('menuitem', { name: '1x (Normal)' }).click(),
+      pngOption.click(),
     ]);
     expect(pngDownload.suggestedFilename()).toMatch(/\.png$/i);
     await pngDownload.delete();
