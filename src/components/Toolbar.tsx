@@ -153,18 +153,18 @@ export const Toolbar = ({
               <div className="space-y-2">
                 <h3 className="font-semibold text-sm">Actions</h3>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm" onClick={handleCopy} className="w-full justify-start">
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Code
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleCopyImage} className="w-full justify-start">
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    Copy Image
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleShare} className="w-full justify-start">
-                    <LinkIcon className="h-4 w-4 mr-2" />
-                    Share Link
-                  </Button>
+                   <Button variant="outline" size="sm" onClick={handleCopy} className="w-full justify-start" data-testid="toolbar-copy-code">
+                     <Copy className="h-4 w-4 mr-2" />
+                     Copy Code
+                   </Button>
+                   <Button variant="outline" size="sm" onClick={handleCopyImage} className="w-full justify-start" data-testid="toolbar-copy-image">
+                     <ImageIcon className="h-4 w-4 mr-2" />
+                     Copy Image
+                   </Button>
+                   <Button variant="outline" size="sm" onClick={handleShare} className="w-full justify-start" data-testid="toolbar-share">
+                     <LinkIcon className="h-4 w-4 mr-2" />
+                     Share Link
+                   </Button>
                   <Button variant="outline" size="sm" onClick={onOpenConfig} className="w-full justify-start">
                     <Gear className="h-4 w-4 mr-2" />
                     Configuration
@@ -318,44 +318,44 @@ export const Toolbar = ({
           <div className="w-px h-6 bg-border mx-1" />
 
           {/* Copy buttons */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copy Code</TooltipContent>
-          </Tooltip>
+           <Tooltip>
+             <TooltipTrigger asChild>
+               <Button variant="outline" size="sm" onClick={handleCopy} data-testid="toolbar-copy-code">
+                 <Copy className="h-4 w-4" />
+               </Button>
+             </TooltipTrigger>
+             <TooltipContent>Copy Code</TooltipContent>
+           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleCopyImage}>
-                <ImageIcon className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copy Image</TooltipContent>
-          </Tooltip>
+           <Tooltip>
+             <TooltipTrigger asChild>
+               <Button variant="outline" size="sm" onClick={handleCopyImage} data-testid="toolbar-copy-image">
+                 <ImageIcon className="h-4 w-4" />
+               </Button>
+             </TooltipTrigger>
+             <TooltipContent>Copy Image</TooltipContent>
+           </Tooltip>
 
           {/* Share button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={handleShare}>
-                <LinkIcon className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Copy Share Link</TooltipContent>
-          </Tooltip>
+           <Tooltip>
+             <TooltipTrigger asChild>
+               <Button variant="outline" size="sm" onClick={handleShare} data-testid="toolbar-share">
+                 <LinkIcon className="h-4 w-4" />
+               </Button>
+             </TooltipTrigger>
+             <TooltipContent>Copy Share Link</TooltipContent>
+           </Tooltip>
 
           <div className="w-px h-6 bg-border mx-1" />
 
           {/* Export */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm">
-                <DownloadSimple className="h-4 w-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
+           <DropdownMenu>
+             <DropdownMenuTrigger asChild>
+               <Button variant="default" size="sm" data-testid="toolbar-export">
+                 <DownloadSimple className="h-4 w-4" />
+                 Export
+               </Button>
+             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onExport('svg')}>
                 Export as SVG
