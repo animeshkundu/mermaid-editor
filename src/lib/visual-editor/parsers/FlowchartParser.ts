@@ -13,7 +13,7 @@
 
 import type { DiagramType, GraphVisualState, VisualNode, VisualEdge, MermaidShape, EdgeType } from '@/types';
 import type { DiagramParser } from '../MermaidASTService';
-import { Diagram } from 'mermaid';
+import mermaid from 'mermaid';
 
 /**
  * Metadata extracted from comments
@@ -32,16 +32,23 @@ export class FlowchartParser implements DiagramParser<GraphVisualState> {
    */
   async parse(code: string): Promise<GraphVisualState | null> {
     try {
-      // Parse using Mermaid's Diagram API
-      const diagram = await Diagram.fromText(code);
+      // Use Mermaid's render API to parse the diagram
+      // This is a workaround since Diagram is not directly exported
+      const id = `flowchart-parse-${Date.now()}`;
       
-      // Access the diagram database (contains parsed graph structure)
-      const db = (diagram as any).db;
+      // Parse the diagram - this will throw if invalid
+      const { svg } = await mermaid.render(id, code);
       
-      if (!db) {
+      // Access the internal diagram structure (hacky but necessary)
+      // Mermaid stores parsed diagrams in a global registry
+      const diagram = (mermaid as any).diagrams?.[id] || (window as any).mermaidAPI?.diagrams?.[id];
+      
+      if (!diagram || !diagram.db) {
         console.error('Failed to access diagram database');
         return null;
       }
+
+      const db = diagram.db;
 
       // Extract nodes (vertices)
       const vertices = db.getVertices?.() || {};

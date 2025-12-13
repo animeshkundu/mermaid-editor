@@ -7,17 +7,20 @@
 
 import { astService } from './MermaidASTService';
 import { FlowchartParser } from './parsers/FlowchartParser';
+import { FlowchartGenerator } from './generators/FlowchartGenerator';
 
 /**
  * Initialize visual editor services
  * Registers all parsers and generators
  */
 export function initializeVisualEditorServices(): void {
-  // Register Flowchart parser
+  // Register Flowchart parser and generator
   const flowchartParser = new FlowchartParser();
+  const flowchartGenerator = new FlowchartGenerator();
+  
   astService.registerParser(['flowchart'], flowchartParser);
+  astService.registerGenerator(['flowchart'], flowchartGenerator);
 
-  // TODO: Register FlowchartGenerator when implemented
   // TODO: Register parsers/generators for other diagram types (Phase 2+)
   
   console.log('[Visual Editor] Services initialized');
