@@ -2,6 +2,28 @@
 
 AI agent instructions for working with this codebase. This file is optimized for GitHub Copilot, Claude, Cursor, and similar AI coding assistants.
 
+## Before You Start
+
+**Read the documentation first.** Before making any changes:
+
+1. **Read `/docs/PRD.md`** — Understand product requirements and scope
+2. **Read `/docs/ADR/`** — Review all Architecture Decision Records
+3. **Check `/docs/HISTORY.md`** — Understand what's been tried/removed and why
+4. **Read `/docs/DEVELOPER_GUIDE.md`** — Setup, core concepts, and contribution workflow
+5. **Read `/docs/ARCHITECTURE_GUIDELINES.md`** — Architectural principles and patterns
+6. **Read `/docs/DESIGN_GUIDELINES.md`** — UI/UX and styling standards
+7. **Read `/docs/TESTING_GUIDELINES.md`** — Testing strategy and best practices
+
+**Reference docs during work:**
+- Before solving a problem, check if an ADR already covers it
+- Before removing code, check if there's context in HISTORY.md
+- When in doubt about product direction, consult PRD.md
+
+**Update docs as you work:**
+- **New architectural decisions** → Create ADR in `/docs/ADR/`
+- **Significant changes** → Update relevant sections in this file
+- **Removed features/code** → Document in `/docs/history/` (see below)
+
 ## Quick Reference
 
 ```bash
@@ -143,3 +165,127 @@ export default function MyComponent() {} // Use named exports
 This is a client-side-only Mermaid diagram editor. No backend, no auth, no database. State persists to localStorage. URL sharing uses base64-encoded state in query params.
 
 The app supports 20+ diagram types (flowchart, sequence, class, ER, gantt, etc.) with live preview, pan/zoom, multiple export formats (SVG, PNG at 1-4x, Markdown), and light/dark themes.
+
+## Architecture Decision Records (ADRs)
+
+Significant architectural decisions are documented in `/docs/ADR/`. When making decisions that affect:
+- Data flow or state management patterns
+- Export/rendering strategies
+- Third-party library choices
+- Performance trade-offs
+- Security considerations
+
+Create a new ADR using this format:
+
+```
+docs/ADR/
+├── 001-svg-to-canvas-export.md   # PNG export strategy
+└── NNN-descriptive-name.md       # Next decision
+```
+
+**ADR Template:**
+```markdown
+# ADR-NNN: Title
+
+## Status
+Proposed | Accepted | Deprecated | Superseded by ADR-XXX
+
+## Date
+YYYY-MM-DD
+
+## Context
+What is the issue? What forces are at play?
+
+## Decision
+What is the change being proposed or accepted?
+
+## Consequences
+What are the trade-offs? What becomes easier/harder?
+```
+
+Reference existing ADRs before re-solving similar problems.
+
+## Vertical Slicing
+
+When implementing features, use **vertical slices** — complete end-to-end functionality rather than horizontal layers.
+
+**✅ Good vertical slice:** "Add Kanban diagram example"
+1. Add type to `DiagramType` union in `types/index.ts`
+2. Add example to `DIAGRAM_EXAMPLES` in `lib/constants.ts`
+3. Test the example renders in preview
+4. Done — user can immediately use Kanban diagrams
+
+**❌ Bad horizontal approach:** "Build out the types layer first"
+1. Add 5 new types to `types/index.ts`
+2. Later: add constants for those types
+3. Later: wire up the UI
+4. User sees nothing until all layers complete
+
+**Slice sizing guidelines:**
+- Each slice should be **testable in isolation**
+- Aim for slices completable in **1-2 hours**
+- A slice must **touch the UI** (otherwise it's just infrastructure)
+- Prefer **many small PRs** over one large PR
+
+**Example slices for a "History Panel" feature:**
+1. Slice 1: Show current undo/redo count in toolbar (UI feedback)
+2. Slice 2: Add dropdown showing last 5 history entries
+3. Slice 3: Click history entry to restore that state
+4. Slice 4: Add keyboard navigation in history dropdown
+
+## Documentation Maintenance
+
+### Directory Structure
+```
+docs/
+├── AGENT.md              # This file — AI agent instructions
+├── PRD.md                # Product requirements document
+├── HISTORY.md            # High-level project history
+├── ADR/                  # Architecture Decision Records
+│   └── 001-*.md          # Individual decisions
+└── history/              # Archive of removed features/code
+    └── YYYY-MM-DD-*.md   # Dated removal records
+```
+
+### When to Create a History Record
+
+Create a file in `/docs/history/` when:
+- **Removing a feature** — Document what it did and why it was removed
+- **Deleting significant code** (>50 lines) — Preserve context for future reference
+- **Reverting a decision** — Link to the original ADR and explain why it didn't work
+- **Deprecating an approach** — Help future developers avoid the same path
+
+**History Record Template** (`/docs/history/YYYY-MM-DD-descriptive-name.md`):
+```markdown
+# Removed: Feature/Component Name
+
+## Date Removed
+YYYY-MM-DD
+
+## What Was Removed
+Brief description of the feature, component, or code.
+
+## Why It Existed
+Original purpose and the problem it solved.
+
+## Why It Was Removed
+- Reason 1
+- Reason 2
+
+## Key Code (for reference)
+\`\`\`typescript
+// Preserve any non-obvious logic that might be useful later
+\`\`\`
+
+## Related
+- ADR-XXX (if applicable)
+- PR/commit link (if available)
+```
+
+### Documentation Update Checklist
+
+Before completing any significant work:
+- [ ] Does this change warrant a new ADR? → Create in `/docs/ADR/`
+- [ ] Did I remove/deprecate something? → Document in `/docs/history/`
+- [ ] Did I change how something works? → Update this AGENT.md
+- [ ] Did I add a new pattern/convention? → Add to relevant section above
