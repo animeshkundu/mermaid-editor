@@ -36,6 +36,7 @@ This document defines the architectural principles, patterns, and subsystems of 
 ```typescript
 const [code, setCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
 const [config, setConfig] = useLocalStorage<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
+const [editorSettings] = useLocalStorage<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
 const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
 const [appTheme, setAppTheme] = useLocalStorage<AppTheme>('app-theme', 'light');
 ```
@@ -70,7 +71,7 @@ Diagram Code → JSON → UTF-8 Bytes → Base64 → URL-safe Base64
 ```typescript
 // Encode: State → URL
 const encoded = encodeState({ code, config });
-url.hash = `#state=${encoded}`;
+url.hash = encoded;  // Encoded string placed directly in hash (no prefix)
 
 // Decode: URL → State  
 const urlState = parseUrlState();

@@ -124,9 +124,11 @@ npm run clean         # Clear build cache and node_modules/.vite
 ```
 mermaid-editor/
 ├── src/                        # Application source code
+│   ├── App.tsx                 # Root component, state hub
+│   ├── ErrorFallback.tsx       # Error boundary fallback UI
+│   ├── main.tsx                # Application entry point
 │   ├── components/             # React components
 │   │   ├── ui/                 # shadcn/ui primitives (button, dialog, etc.)
-│   │   ├── App.tsx             # Root component, state hub
 │   │   ├── CodeEditor.tsx      # Monaco editor wrapper
 │   │   ├── DiagramPreview.tsx  # Mermaid rendering component
 │   │   ├── Toolbar.tsx         # Top navigation and actions
@@ -167,18 +169,22 @@ mermaid-editor/
 ### 3.2 Key Files & Entry Points
 
 #### [src/main.tsx](../src/main.tsx)
-**Entry point** - Renders the React app into the DOM:
+**Entry point** - Renders the React app into the DOM with error boundary:
 ```tsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './styles/globals.css';
+import { createRoot } from 'react-dom/client'
+import { ErrorBoundary } from "react-error-boundary";
+import App from './App.tsx'
+import { ErrorFallback } from './ErrorFallback.tsx'
+import './styles/globals.css'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+const root = document.getElementById('root');
+if (!root) throw new Error('Root element not found');
+
+createRoot(root).render(
+  <ErrorBoundary FallbackComponent={ErrorFallback}>
     <App />
-  </React.StrictMode>
-);
+  </ErrorBoundary>
+)
 ```
 
 #### [src/App.tsx](../src/App.tsx)
@@ -235,6 +241,7 @@ Mermaid Live Editor uses a **dual persistence strategy**:
 ```typescript
 const [code, setCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
 const [config, setConfig] = useLocalStorage<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
+const [editorSettings] = useLocalStorage<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
 const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
 const [appTheme, setAppTheme] = useLocalStorage<AppTheme>('app-theme', 'light');
 ```
@@ -273,7 +280,7 @@ State Object → JSON → UTF-8 Bytes → Base64 → URL-safe Base64 → URL has
 const state = { code: 'graph TD\n  A-->B', config: { theme: 'dark' } };
 const encoded = encodeState(state);
 // encoded: "eyJjb2RlIjoiZ3JhcGggVEQKICBBLS0+QiIsImNvbmZpZyI6eyJ0aGVtZSI6ImRhcmsifX0"
-window.location.hash = `#state=${encoded}`;
+window.location.hash = encoded;  // Encoded string placed directly in hash
 ```
 
 **Loading from URL:**
@@ -356,11 +363,12 @@ export const renderMermaid = async (code, elementId, config) => {
 // DiagramPreview.tsx
 const renderDiagram = async () => {
   try {
-    const svg = await renderMermaid(code, 'preview', config);
-    setCurrentSvg(svg);
-    onSvgRendered?.(svg); // Notify parent for export
+    const elementId = `mermaid-${Date.now()}`;
+    const result = await renderMermaid(code, elementId, config);
+    setSvg(result.svg);
+    onSvgRendered?.(result.svg); // Notify parent for export
   } catch (error) {
-    setError(error.message);
+    setError(extractErrorMessage(error));
   }
 };
 
