@@ -1,10 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const WEB_SERVER_TIMEOUT = 60000;
+const WEB_SERVER_COMMAND = 'node scripts/start-test-server.js';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: 'http://localhost:5000',
@@ -12,7 +13,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm run dev -- --host --port 5000',
+    command: WEB_SERVER_COMMAND,
     url: 'http://localhost:5000/',
     reuseExistingServer: !process.env.CI,
     timeout: WEB_SERVER_TIMEOUT,

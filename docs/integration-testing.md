@@ -11,8 +11,8 @@ This project now uses **Playwright** for browser-level integration tests so we c
 
 ## How it works here
 
-- Configuration lives in `playwright.config.ts`. It starts `npm run dev -- --host --port 5000`, reuses an existing server when possible, and pins the Chromium project for minimal installs.
-- Tests live in `tests/e2e`. The initial smoke test opens the editor, loads the “Sequence Diagram” example from the toolbar, and asserts the Mermaid preview updates.
+- Configuration lives in `playwright.config.ts`. The harness (`scripts/start-test-server.js`) first probes for an existing dev server; if none is running it builds the app and starts `npm run preview -- --host --port 5000`, then keeps the server alive for the suite.
+- Tests live in `tests/e2e`. The suite covers every built-in diagram example (nodes/edges text assertions), copy/share/export actions (clipboard + downloads), and the preview rendering path.
 - The Playwright runner handles waiting for the debounced render (`trace: 'on-first-retry'` is enabled for debugging).
 
 ## Running the integration tests
@@ -25,6 +25,13 @@ This project now uses **Playwright** for browser-level integration tests so we c
    ```bash
    npm run test:e2e
    ```
+
+## Coverage goal
+
+The Playwright suite targets ≥90% coverage of critical UI flows by exercising:
+- All built-in Mermaid examples (preview text/edges)
+- Copy code, copy image, and share link actions (clipboard stubs)
+- SVG/PNG/Markdown exports (download assertions)
 
 ## Future coverage ideas
 
