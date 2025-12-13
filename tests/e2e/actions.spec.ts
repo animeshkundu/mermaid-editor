@@ -2,6 +2,10 @@ import { test, expect, Page } from '@playwright/test';
 
 const DIAGRAM_RENDER_TIMEOUT = 12000;
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const SHARE_URL_PREFIX = 'http://localhost:5000';
+const EXPORT_OPEN_RETRIES = 3;
+const EXPORT_VISIBLE_TIMEOUT = 1500;
+const EXPORT_FINAL_TIMEOUT = 2000;
 
 const loadExample = async (page: Page, name: string = 'Basic Flowchart', expectedText: string = 'Start') => {
   await page.getByRole('button', { name: 'Examples' }).click();
@@ -75,11 +79,11 @@ test.describe('Toolbar actions', () => {
     expect(copiedCode).toContain('flowchart TD');
 
     await page.getByTestId('toolbar-share').click();
-    await page.waitForFunction(() => {
+    await page.waitForFunction((prefix) => {
       const store = (window as { __clipboardStore?: { text?: string } }).__clipboardStore;
       const text = store?.text ?? '';
-      return text.startsWith('http://localhost:5000') && text.includes('#') && text.split('#')[1]?.length > 0;
-    }, null, { timeout: 15000 });
+      return text.startsWith(prefix) && text.includes('#') && text.split('#')[1]?.length > 0;
+    }, SHARE_URL_PREFIX, { timeout: 15000 });
   });
 
   test('copies image to clipboard', async ({ page }) => {
@@ -104,16 +108,20 @@ test.describe('Toolbar actions', () => {
       const exportButton = page.getByTestId('toolbar-export');
       await exportButton.scrollIntoViewIfNeeded();
       await page.keyboard.press('Escape');
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < EXPORT_OPEN_RETRIES; attempt++) {
         await exportButton.click();
         try {
-          await page.getByRole('menuitem', { name: 'Export as SVG' }).waitFor({ state: 'visible', timeout: 1500 });
+          await page
+            .getByRole('menuitem', { name: 'Export as SVG' })
+            .waitFor({ state: 'visible', timeout: EXPORT_VISIBLE_TIMEOUT });
           return;
         } catch {
           /* retry */
         }
       }
-      await page.getByRole('menuitem', { name: 'Export as SVG' }).waitFor({ state: 'visible', timeout: 2000 });
+      await page
+        .getByRole('menuitem', { name: 'Export as SVG' })
+        .waitFor({ state: 'visible', timeout: EXPORT_FINAL_TIMEOUT });
     };
 
     await openExportMenu();
@@ -138,9 +146,11 @@ test.describe('Toolbar actions', () => {
     await pngDownload.delete();
 
     await openExportMenu();
+    const mdItem = page.getByRole('menuitem', { name: 'Export as Markdown' });
+    await expect(mdItem).toBeVisible({ timeout: EXPORT_FINAL_TIMEOUT });
     const [mdDownload] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('menuitem', { name: 'Export as Markdown' }).click(),
+      mdItem.click(),
     ]);
     expect(mdDownload.suggestedFilename()).toMatch(/\.md$/i);
     await mdDownload.delete();
