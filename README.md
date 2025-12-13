@@ -51,9 +51,12 @@ npm run preview      # Preview production build
 npm run test         # Run tests (vitest, single run)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage
+npm run test:e2e     # Run Playwright integration tests against the dev server
 npm run lint         # Run ESLint
 npm run clean        # Clear build cache
 ```
+
+See [docs/integration-testing.md](./docs/integration-testing.md) for details on the Playwright setup and recommended coverage.
 
 ## Supported Diagram Types
 
@@ -111,4 +114,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
