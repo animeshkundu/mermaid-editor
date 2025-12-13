@@ -2,12 +2,13 @@
  * VisualEditorRegistry Component
  * 
  * Routes to the appropriate visual editor based on diagram type and paradigm.
- * In Phase 0, shows EmptyState for all diagram types.
- * In future phases, will route to specialized editors (GraphCanvasEditor, etc.)
+ * In Phase 1, supports flowchart diagrams with GraphCanvasEditor.
+ * Future phases will add routing logic for other paradigms.
  */
 
-import { DiagramType, VisualState } from '@/types';
+import { DiagramType, VisualState, GraphVisualState } from '@/types';
 import { EmptyState } from './EmptyState';
+import { GraphCanvasEditor } from './GraphCanvasEditor';
 
 export interface VisualEditorRegistryProps {
   /** The type of diagram being edited */
@@ -27,9 +28,26 @@ export const VisualEditorRegistry = ({
   visualState,
   onChange,
 }: VisualEditorRegistryProps) => {
-  // Phase 0: Show empty state for all diagram types
-  // Future phases will add routing logic here
-  
+  // Phase 1: Support flowchart diagrams
+  if (diagramType === 'flowchart') {
+    if (!visualState || visualState.paradigm !== 'graph') {
+      return (
+        <EmptyState 
+          message="Loading flowchart visual editor..."
+          title="Visual Editor"
+        />
+      );
+    }
+
+    return (
+      <GraphCanvasEditor
+        state={visualState as GraphVisualState}
+        onChange={onChange}
+      />
+    );
+  }
+
+  // Future phases: Add support for other diagram types
   const getEmptyMessage = (type: DiagramType): string => {
     const typeNames: Record<DiagramType, string> = {
       flowchart: 'flowchart',

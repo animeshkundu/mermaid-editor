@@ -27,8 +27,13 @@ import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Code, Eye } from '@phosphor-icons/react';
 import { VisualEditorRegistry } from '@/components/visual-editor/VisualEditorRegistry';
+import { SyncEngine } from '@/lib/visual-editor/SyncEngine';
+import '@xyflow/react/dist/style.css';
 
 const CodeEditor = lazy(() => import('@/components/CodeEditor').then(module => ({ default: module.CodeEditor })));
+
+// Initialize sync engine (singleton)
+const syncEngine = new SyncEngine();
 
 function App() {
   const [code, setCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
@@ -185,7 +190,29 @@ function App() {
       ...prev,
       [diagramType]: state,
     }));
-  }, [setVisualStates]);
+
+    // Sync visual changes back to text (debounced)
+    syncEngine.syncVisualToText(state, diagramType as DiagramType).then(newCode => {
+      if (newCode) {
+        setCode(newCode);
+      }
+    });
+  }, [setVisualStates, setCode]);
+
+  // Sync text changes to visual (when in visual mode)
+  useEffect(() => {
+    if (editMode === 'visual' && code) {
+      const diagramType = currentDiagramType();
+      syncEngine.syncTextToVisual(code, diagramType).then(newState => {
+        if (newState) {
+          setVisualStates(prev => ({
+            ...prev,
+            [diagramType]: newState,
+          }));
+        }
+      });
+    }
+  }, [code, editMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect current diagram type (simple heuristic)
   const currentDiagramType = useCallback((): DiagramType => {
@@ -343,7 +370,7 @@ function App() {
             <>
               <ResizableHandle withHandle />
 
-              <ResizablePanel defaultSize={33} minSize={20}>
+              <ResizablePanel defaultSize={33} minSize={20} data-panel="visual">
                 <div className="h-full flex flex-col">
                   <div className="border-b px-4 py-2 bg-muted/50">
                     <h2 className="text-sm font-semibold">Visual Editor</h2>

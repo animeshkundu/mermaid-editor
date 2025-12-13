@@ -340,7 +340,7 @@ export const Toolbar = ({
               >
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <ToggleGroupItem value="text" aria-label="Code mode">
+                    <ToggleGroupItem value="text" aria-label="Code mode" data-mode="text" data-testid="edit-mode-text">
                       <Code className="h-4 w-4" weight="duotone" />
                     </ToggleGroupItem>
                   </TooltipTrigger>
@@ -353,6 +353,8 @@ export const Toolbar = ({
                       value="visual" 
                       aria-label="Visual mode"
                       disabled={!isVisualSupported}
+                      data-mode="visual"
+                      data-testid="edit-mode-visual"
                     >
                       <Cursor className="h-4 w-4" weight="duotone" />
                       <Badge variant="secondary" className="ml-1 px-1 text-[10px] h-4">
