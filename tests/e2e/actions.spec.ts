@@ -100,16 +100,17 @@ test.describe('Toolbar actions', () => {
     await loadExample(page, 'Basic Flowchart');
 
     const openExportMenu = async () => {
-      await page.getByTestId('toolbar-export').click();
-      const svgVisible = await page
-        .locator('[role="menuitem"]', { hasText: 'Export as SVG' })
-        .first()
-        .isVisible()
-        .catch(() => false);
-      if (!svgVisible) {
-        await page.waitForTimeout(100);
-        await page.getByTestId('toolbar-export').click({ force: true });
+      const exportButton = page.getByTestId('toolbar-export');
+      for (let i = 0; i < 2; i++) {
+        await exportButton.click();
+        try {
+          await page.getByRole('menuitem', { name: 'Export as SVG' }).waitFor({ state: 'visible', timeout: 1000 });
+          return;
+        } catch {
+          /* retry */
+        }
       }
+      await page.getByRole('menuitem', { name: 'Export as SVG' }).waitFor({ state: 'visible', timeout: 2000 });
     };
 
     await openExportMenu();
@@ -121,13 +122,11 @@ test.describe('Toolbar actions', () => {
     await svgDownload.delete();
 
     await openExportMenu();
-    await page.waitForTimeout(200);
-    await page.waitForSelector('[role="menuitem"]', { state: 'attached' });
     const pngTrigger = page.locator('[role="menuitem"]', { hasText: 'Export as PNG' }).first();
-    await pngTrigger.waitFor();
+    await pngTrigger.waitFor({ state: 'visible', timeout: 2000 });
     await pngTrigger.click();
     const pngOption = page.locator('[role="menuitem"]', { hasText: '1x (Normal)' }).first();
-    await pngOption.waitFor();
+    await pngOption.waitFor({ state: 'visible', timeout: 2000 });
     const [pngDownload] = await Promise.all([
       page.waitForEvent('download'),
       pngOption.click(),
