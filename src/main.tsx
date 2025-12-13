@@ -3,8 +3,12 @@ import { ErrorBoundary } from "react-error-boundary";
 
 import App from './App.tsx'
 import { ErrorFallback } from './ErrorFallback.tsx'
+import { initializeVisualEditorServices } from './lib/visual-editor'
 
 import './styles/globals.css'
+
+// Initialize visual editor services
+initializeVisualEditorServices();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
