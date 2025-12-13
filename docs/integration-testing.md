@@ -12,7 +12,7 @@ This project now uses **Playwright** for browser-level integration tests so we c
 ## How it works here
 
 - Configuration lives in `playwright.config.ts`. It starts `npm run dev -- --host --port 5000`, reuses an existing server when possible, and pins the Chromium project for minimal installs.
-- Tests live in `tests/e2e`. The initial smoke test opens the editor, edits the Monaco-backed code area, and asserts the Mermaid preview updates.
+- Tests live in `tests/e2e`. The initial smoke test opens the editor, loads the “Sequence Diagram” example from the toolbar, and asserts the Mermaid preview updates.
 - The Playwright runner handles waiting for the debounced render (`trace: 'on-first-retry'` is enabled for debugging).
 
 ## Running the integration tests

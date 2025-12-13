@@ -93,6 +93,7 @@ export const DiagramPreview = ({ code, config, onSvgRendered }: DiagramPreviewPr
             <div
               ref={containerRef}
               className="mermaid-diagram"
+              data-testid="mermaid-diagram"
               dangerouslySetInnerHTML={{ __html: svg }}
             />
           </div>
