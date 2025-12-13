@@ -31,6 +31,7 @@ import {
 import dagre from 'dagre';
 
 import type { GraphVisualState, VisualNode, VisualEdge, MermaidShape } from '@/types';
+import { FlowchartNode } from './FlowchartNode';
 
 export interface GraphCanvasEditorProps {
   /** Current visual state */
@@ -41,30 +42,9 @@ export interface GraphCanvasEditorProps {
   readOnly?: boolean;
 }
 
-/**
- * Map MermaidShape to React Flow node style
- */
-const getNodeStyle = (shape: MermaidShape): React.CSSProperties => {
-  const baseStyle: React.CSSProperties = {
-    padding: '10px 20px',
-    border: '2px solid #555',
-    background: '#fff',
-    fontSize: '14px',
-    fontFamily: 'inherit',
-  };
-
-  switch (shape) {
-    case 'rounded':
-    case 'stadium':
-      return { ...baseStyle, borderRadius: '20px' };
-    case 'circle':
-    case 'double-circle':
-      return { ...baseStyle, borderRadius: '50%', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-    case 'rhombus':
-      return { ...baseStyle, transform: 'rotate(45deg)', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-    default:
-      return baseStyle;
-  }
+// Register custom node types
+const nodeTypes = {
+  flowchartNode: FlowchartNode,
 };
 
 /**
@@ -108,10 +88,9 @@ const getLayoutedElements = (
  */
 const visualNodeToFlowNode = (vNode: VisualNode): Node => ({
   id: vNode.id,
-  type: 'default',
+  type: 'flowchartNode',
   position: { x: vNode.x, y: vNode.y },
   data: { label: vNode.label, shape: vNode.shape },
-  style: getNodeStyle(vNode.shape),
 });
 
 /**
@@ -203,6 +182,7 @@ export const GraphCanvasEditor = ({ state, onChange, readOnly = false }: GraphCa
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         connectionMode={ConnectionMode.Loose}
