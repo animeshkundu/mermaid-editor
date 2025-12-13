@@ -77,7 +77,8 @@ test.describe('Toolbar actions', () => {
     await page.getByTestId('toolbar-share').click();
     await page.waitForFunction(() => {
       const store = (window as { __clipboardStore?: { text?: string } }).__clipboardStore;
-      return !!store?.text && store.text.startsWith('http') && store.text.includes('#');
+      const text = store?.text ?? '';
+      return text.startsWith('http://localhost:5000') && text.includes('#') && text.split('#')[1]?.length > 0;
     }, null, { timeout: 15000 });
   });
 
@@ -101,10 +102,12 @@ test.describe('Toolbar actions', () => {
 
     const openExportMenu = async () => {
       const exportButton = page.getByTestId('toolbar-export');
-      for (let i = 0; i < 2; i++) {
+      await exportButton.scrollIntoViewIfNeeded();
+      await page.keyboard.press('Escape');
+      for (let attempt = 0; attempt < 3; attempt++) {
         await exportButton.click();
         try {
-          await page.getByRole('menuitem', { name: 'Export as SVG' }).waitFor({ state: 'visible', timeout: 1000 });
+          await page.getByRole('menuitem', { name: 'Export as SVG' }).waitFor({ state: 'visible', timeout: 1500 });
           return;
         } catch {
           /* retry */
@@ -122,11 +125,11 @@ test.describe('Toolbar actions', () => {
     await svgDownload.delete();
 
     await openExportMenu();
-    const pngTrigger = page.locator('[role="menuitem"]', { hasText: 'Export as PNG' }).first();
-    await pngTrigger.waitFor({ state: 'visible', timeout: 2000 });
+    const pngTrigger = page.getByRole('menuitem', { name: 'Export as PNG' });
+    await expect(pngTrigger).toBeVisible({ timeout: 2000 });
     await pngTrigger.click();
-    const pngOption = page.locator('[role="menuitem"]', { hasText: '1x (Normal)' }).first();
-    await pngOption.waitFor({ state: 'visible', timeout: 2000 });
+    const pngOption = page.getByRole('menuitem', { name: '1x (Normal)' });
+    await expect(pngOption).toBeVisible({ timeout: 2000 });
     const [pngDownload] = await Promise.all([
       page.waitForEvent('download'),
       pngOption.click(),
