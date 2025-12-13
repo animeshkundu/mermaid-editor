@@ -26,6 +26,7 @@ import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Code, Eye } from '@phosphor-icons/react';
+import { VisualBuilderPlaceholder } from '@/components/VisualBuilderPlaceholder';
 
 const CodeEditor = lazy(() => import('@/components/CodeEditor').then(module => ({ default: module.CodeEditor })));
 
@@ -40,6 +41,7 @@ function App() {
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
   const [appTheme, setAppTheme] = useLocalStorage<AppTheme>('app-theme', 'light');
+  const [viewMode, setViewMode] = useState<'code' | 'builder'>('code');
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
@@ -117,6 +119,10 @@ function App() {
   const handleAppThemeChange = useCallback((theme: AppTheme) => {
     setAppTheme(theme);
   }, [setAppTheme]);
+
+  const handleViewModeToggle = useCallback(() => {
+    setViewMode((mode) => (mode === 'code' ? 'builder' : 'code'));
+  }, []);
 
   const handleConfigSave = useCallback((newConfig: MermaidConfig) => {
     setConfig(newConfig);
@@ -197,6 +203,8 @@ function App() {
         onLayoutChange={handleLayoutChange}
         onFullscreen={handleFullscreen}
         onAppThemeChange={handleAppThemeChange}
+        onToggleBuilder={handleViewModeToggle}
+        viewMode={viewMode}
         currentCode={code || ''}
         currentTheme={config?.theme || 'default'}
         currentLayout={layout || 'horizontal'}
@@ -205,7 +213,9 @@ function App() {
         canRedo={historyState.canRedo}
       />
 
-      {isMobile ? (
+      {viewMode === 'builder' ? (
+        <VisualBuilderPlaceholder onBackToCode={handleViewModeToggle} />
+      ) : isMobile ? (
         <Tabs defaultValue="preview" className="flex-1 flex flex-col">
           <TabsList className="w-full rounded-none border-b">
             <TabsTrigger value="editor" className="flex-1">
