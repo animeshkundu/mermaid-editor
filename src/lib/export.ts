@@ -297,6 +297,29 @@ export const exportPNG = async (
   });
 };
 
+export const exportJPEG = async (
+  svgString: string,
+  filename: string = 'diagram.jpeg',
+  scale: PNGScale = 3
+): Promise<void> => {
+  const canvas = await svgStringToCanvas(svgString, scale);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          downloadFile(blob, filename, 'image/jpeg');
+          resolve();
+        } else {
+          reject(new Error('Failed to create JPEG blob'));
+        }
+      },
+      'image/jpeg',
+      0.92
+    );
+  });
+};
+
 export const copyImageToClipboard = async (svgString: string): Promise<void> => {
   const canvas = await svgStringToCanvas(svgString, 3);
 
@@ -349,6 +372,11 @@ export const exportDiagram = async (
     case 'png':
       if (svgString) {
         await exportPNG(svgString, `${filename}.png`, options.scale || 3);
+      }
+      break;
+    case 'jpeg':
+      if (svgString) {
+        await exportJPEG(svgString, `${filename}.jpeg`, options.scale || 3);
       }
       break;
     case 'markdown':

@@ -183,6 +183,10 @@ export const Toolbar = ({
                     <DownloadSimple className="h-4 w-4 mr-2" />
                     Export as PNG
                   </Button>
+                  <Button variant="outline" size="sm" onClick={() => onExport('jpeg')} className="w-full justify-start">
+                    <DownloadSimple className="h-4 w-4 mr-2" />
+                    Export as JPEG
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => onExport('markdown')} className="w-full justify-start">
                     <DownloadSimple className="h-4 w-4 mr-2" />
                     Export as Markdown
@@ -375,6 +379,9 @@ export const Toolbar = ({
                   ))}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => onExport('jpeg')}>
+                Export as JPEG
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onExport('markdown')}>
                 Export as Markdown
               </DropdownMenuItem>
