@@ -20,7 +20,7 @@ export type DiagramType =
   | 'kanban'
   | 'architecture';
 
-export type ExportFormat = 'svg' | 'png' | 'markdown';
+export type ExportFormat = 'svg' | 'png' | 'jpeg' | 'markdown';
 
 export type PNGScale = 1 | 2 | 3 | 4;
 
