@@ -4,6 +4,7 @@ import { Toolbar, LayoutDirection, AppTheme } from '@/components/Toolbar';
 import { DiagramPreview } from '@/components/DiagramPreview';
 import { ConfigDialog } from '@/components/ConfigDialog';
 import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog';
+import { StatusBar } from '@/components/StatusBar';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -293,6 +294,8 @@ function App() {
           </ResizablePanel>
         </ResizablePanelGroup>
       )}
+
+      <StatusBar code={code || ''} />
 
       <ConfigDialog
         open={isConfigOpen}
