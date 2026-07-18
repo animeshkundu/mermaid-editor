@@ -1,0 +1,247 @@
+{
+  "outcome": "Raise the Mermaid editor's code-editing + render loop to viewer-grade reliability and polish, benchmarked against mermaid.live, without regressing performance or the offline posture. Deliver: (1) an isolated, mutually-serialized, leak-free Mermaid render pipeline in src/lib/mermaid.ts whose config-establish + render + cleanup is one atomic critical section against the Mermaid singleton and always restores shared configuration; (2) commit epochs in DiagramPreview so only the newest logical request while still mounted may touch any user-visible surface; (3) non-destructive, diagram-type-scoped retain-and-dim of the last-good diagram on invalid input, with a slim persistent feedback affordance and a full blocking error card reserved for cold-start; (4) a single best-effort Monaco diagnostic marker carrying the complete message with native F8/Shift+F8 navigation, derived from the same debounced render; (5) always-on synchronous context-aware completions and starter snippets for all 20 DiagramType categories, available independent of render success; (6) image/copy export kept enabled against the retained last-good SVG with an honest, non-silent stale warning. Preserve the 300ms debounce, lazy CodeEditor load, Monaco-from-CDN offline posture, DEFAULT_MERMAID_CONFIG + sequence auto-coloring render fidelity, the existing export contract strings/toasts and data-testid contracts, and the verified 127-pass / 2-skip unit baseline.",
+  "approach": "Two complementary, explicitly-required ordering safeguards operate together, addressing both correctness and the peer-raised concurrency concern that 'ignore stale results' alone does not prevent concurrent Mermaid singleton work. SERIALIZATION (constraint: 'mutually serialize all Mermaid singleton configuration-plus-render work'): a module-level promise-chain mutex in src/lib/mermaid.ts wraps every config-establish + render + cleanup in a single critical section, so no two renders interleave against the shared singleton and every render provably behaves as if executed alone (AC-001). mermaid.initialize is gated on a normalized effective-config key so it is NOT reinitialized per keystroke; rendering targets a detached offscreen container passed as render()'s 3rd argument; a finally block always removes that container plus any orphan #d<id>/#<id> nodes and, on any non-success outcome (throw/reject), re-initializes with the last-good/baseline config — rollback is native because Mermaid's setSiteConfig resets-to-defaultConfig-then-merges on every call, so a bad config never accumulates. COMMIT EPOCHS (a separate ordering safeguard, per constraint): a monotonic render token plus a mounted ref in DiagramPreview mean only the newest logical request, and only while mounted, may commit SVG, diagnostics, markers, export source, last-good, or displayed state; superseded queued renders may additionally short-circuit before doing expensive work, but correctness rests on the token+mount guard. A last-good cache whose content identity is (code, effectiveConfig, svg) — no render ID — enables A→B→A convergence to the newest logical request and reuse only when the cached tuple provably matches the exact current (code, effectiveConfig). On invalid input the last-good SVG is retained and dimmed only when detectDiagramType(currentCode) still matches the retained type (else cleared to cold-start / full blocking card); currentSvgString continues to hold the last VALID render so image/copy export use exactly that SVG with a non-silent stale toast, while copy-code/share/markdown always use the raw current source. Diagnostics come solely from the single debounced render rejection via a centralized extractErrorLocation helper (jison hash.loc → 'Parse/Lexical/Syntax error on line N' regex → hash.line+1 → langium 'offset:N' walked over code → null), threaded onDiagnostic→App→CodeEditor.errorMarker into monaco.editor.setModelMarkers(owner 'mermaid') as at most one best-effort marker whose full message is always visible (precise location when trustworthy, else whole-line-1, never invented). Completions are a synchronous, idempotently-registered Monaco provider fed by a pure, framework-free src/lib/completions.ts (keyword vocabulary from CodeEditor.mermaidLanguageDefinition + starter snippets reusing the e2e-validated DIAGRAM_EXAMPLES), context-aware by first non-comment line with a generic fallback, working regardless of render success. Last-good and diagnostics live in in-memory React state / props (never useLocalStorage outside App.tsx). Do NOT bundle Monaco locally, do NOT add a separate validator/linter/LSP/multi-diagnostic system, do NOT add heavy deps. Viewer polish (cursor-anchored zoom, fit-to-content, prettify) and any persisted settings toggle are explicitly DEFERRED per the editor-focused charter and SCOPE constraint.",
+  "steps": [
+    {
+      "id": "step-1-render-core",
+      "title": "Establish the rock-solid serialized, config-isolated, leak-free render core in src/lib/mermaid.ts (BASE)",
+      "dependsOn": [],
+      "how": [
+        "Add shared types to src/types/index.ts (prefer `type` for new shapes): `type ErrorLocation = { line: number; column?: number; endColumn?: number }` and `type RenderDiagnostic = { message: string; location: ErrorLocation | null; kind: 'syntax' | 'dependency' }`. Export both.",
+        "Add a module-level serialization primitive in src/lib/mermaid.ts: `let renderChain: Promise<unknown> = Promise.resolve();` plus an internal `enqueue<T>(task: () => Promise<T>): Promise<T>` that appends task to renderChain so config-establish + render + cleanup for one call runs as a single atomic critical section (satisfies the mutual-serialization constraint; commit epochs remain a separate safeguard in step-2).",
+        "Track module state: `lastAppliedConfigKey: string | null` (normalized JSON of the effective config actually initialized) and `committedConfig: MermaidConfig | null` (last-good config). Add `normalizeConfigKey(config)` producing a stable, order-independent string; reuse it as the cache-identity config key in step-2.",
+        "Gate initialization inside the critical section: only call the existing mermaid.initialize(fullConfig) when `normalizeConfigKey(effectiveConfig) !== lastAppliedConfigKey`; update lastAppliedConfigKey on success. Keep the existing DEFAULT/theme 'base'/look/fontFamily/themeVariables merge shape and the isolated `as any` cast.",
+        "Render into a detached offscreen container: `const container = document.createElement('div')` styled offscreen (position:absolute; left:-99999px; top:0; visibility:hidden), appended to document.body; call `mermaid.render(id, code, container)` with a unique id, then run postProcessSequenceDiagramSvg on the returned svg.",
+        "finally cleanup (ALWAYS runs): remove `container` from the DOM; defensively remove any lingering `document.getElementById('d'+id)` and `document.getElementById(id)` nodes; on any non-success outcome re-initialize Mermaid with `committedConfig` (or the baseline default if none) to restore shared config. Do NOT advance committedConfig here.",
+        "Extend the public API without breaking callers: keep `renderMermaid(code, elementId, config)` returning `{ svg }` but route it through enqueue + config-key-gated init + offscreen container + postProcess. Add `setCommittedConfig(config)` (advances committedConfig, called by the successful committer in step-2) and keep the existing `extractErrorMessage` export.",
+        "Add `extractErrorLocation(error, code): ErrorLocation | null` implementing the empirically-verified chain: (1) error.hash.loc.first_line/first_column/last_column (jison, precise, 1-based), (2) `/(?:Parse|Lexical|Syntax) error on line (\\d+)/i` on the message, (3) error.hash.line + 1 (block 'Lexical error'), (4) `/offset:?\\s*(\\d+)/i` (langium packet/architecture/pie) converted to {line,column} by walking `code`, (5) null. Best-effort/bounded; never fabricate an unreliable location.",
+        "Add `detectDiagramType(code): DiagramType | null` that maps the first non-comment, non-YAML-frontmatter, non-%%{init}%% line to a DiagramType (used for last-good type scoping in step-2). Returns null when no recognizable root directive exists.",
+        "Add `isDependencyError(error): boolean` classifying Vite dynamic-import/chunk-load and Mermaid module-init dependency failures vs syntax errors.",
+        "Remove the production `console.log` at src/lib/mermaid.ts:83. Keep postProcessSequenceDiagramSvg and validateMermaidSyntax intact.",
+        "Do NOT change global src/test/setup.ts mermaid-mock behavior (its `render` is a vi.fn that already ignores the extra container arg, keeping the 127-pass baseline). For serialization-ordering tests, use per-test `vi.mocked(...).mockImplementationOnce` with manually-controllable promises rather than editing the global mock."
+      ],
+      "verification": [
+        "New src/lib/mermaid.test.ts: extractErrorLocation across the captured jison ('Parse error on line N' + hash.loc), 'Lexical error on line N' + hash.line, langium 'at offset: N', frontmatter-shifted, and CRLF strings, plus the null fallback; detectDiagramType across representative headers incl. frontmatter/directive/gibberish; isDependencyError true/false; serialization ordering via two overlapping renders with manually-resolved mock promises asserting no interleave and that config is restored after a reject; offscreen-container cleanup asserting document.body has zero orphan render nodes after both success and reject.",
+        "Run `npx vitest run src/lib/mermaid.test.ts`, then full `npm run test` (must stay 127 pass / 2 skip plus the new tests), `npm run lint`, `npm run build`."
+      ],
+      "satisfiesAC": [
+        "AC-001",
+        "AC-002",
+        "AC-005",
+        "AC-015",
+        "AC-016",
+        "AC-025",
+        "AC-026",
+        "AC-030"
+      ]
+    },
+    {
+      "id": "step-2-preview-epochs-retain",
+      "title": "Add commit epochs, type-scoped retain-and-dim, and single-path diagnostics to DiagramPreview",
+      "dependsOn": [
+        "step-1-render-core"
+      ],
+      "how": [
+        "Introduce a monotonic `renderTokenRef` incremented on each debounced trigger and a `mountedRef` (true until unmount). Capture the token at dispatch; after the awaited render/cache resolution, commit SVG/diagnostic/last-good/export-source ONLY if `token === renderTokenRef.current && mountedRef.current`. Preserve the existing 300ms debounce and lazy load exactly; keep the skeleton only for cold-start (no last-good, still loading).",
+        "Maintain an in-memory last-good cache `{ code, effectiveConfigKey, svg, type }` in a ref/state (NOT useLocalStorage). Content identity excludes any render ID. Reuse a cached result only when it proves the exact current (code, normalizeConfigKey(config)); use this to converge A→B→A to the newest logical request.",
+        "On success: setSvg(result.svg), clear diagnostic + isStale, update last-good (code, config key, svg, detectDiagramType(code)), call onSvgRendered(svg) to advance export source, call onDiagnostic(null), and call mermaid.setCommittedConfig(effectiveConfig).",
+        "On syntax failure: compute `RenderDiagnostic` via extractErrorLocation; if `detectDiagramType(currentCode)` matches last-good.type, RETAIN the last-good SVG rendered dimmed (~45% opacity) inside the SAME `data-testid='mermaid-diagram'` wrapper so a visible <svg> remains (preserving e2e/test contracts), keep onSvgRendered pointing at the retained last-good SVG, emit onStaleChange(true), and emit onDiagnostic(diagnostic). If the type differs or the root directive was removed, clear last-good and render the full blocking Syntax Error card (cold-start).",
+        "On empty source: clear svg, error, diagnostic, marker source, isStale, and last-good; call onSvgRendered('') and onDiagnostic(null) so a subsequent invalid edit shows the full error state.",
+        "On dependency failure (isDependencyError): show a dedicated Retry panel (shadcn Alert + Button, @phosphor-icons/react duotone) that re-triggers render; do not clear or block the editor; emit onDiagnostic({kind:'dependency', ...}).",
+        "Add a persistent, non-obscuring feedback region (slim shadcn Alert/Badge, low emphasis) plus an `aria-live='polite'` region announcing syntax errors, and an accessible description (aria-label/visually-hidden text) on the retained/dimmed preview stating rendering is paused and the previous valid state is shown.",
+        "Extend props (all new ones optional, backward compatible with App's current code/config/onSvgRendered usage): add `onDiagnostic?: (d: RenderDiagnostic | null) => void` and `onStaleChange?: (stale: boolean) => void`; keep the `onSvgRendered` signature unchanged.",
+        "Unmount cleanup: set mountedRef=false and clear the debounce timer in the effect teardown so no state/marker/DOM/export commit occurs after unmount; an in-flight uninterruptible Mermaid op still restores config via step-1's finally and cannot commit due to the token+mount guard.",
+        "Reserve the full centered error card ONLY for cold-start (no last-good / empty source)."
+      ],
+      "verification": [
+        "Extend src/components/DiagramPreview.test.tsx: resolve-then-reject retains the last-good svg (svg still present in [data-testid=mermaid-diagram]; onStaleChange(true); onDiagnostic called with a message); a diagram-type change on failure clears last-good (full card); empty source clears everything then a following invalid edit shows the full card; two rapid renders assert only the latest token commits; keep the existing '.diagram-preview-bg' and onSvgRendered assertions passing.",
+        "`npm run test`, `npm run lint`, `npm run build` all green."
+      ],
+      "satisfiesAC": [
+        "AC-003",
+        "AC-004",
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-009",
+        "AC-010",
+        "AC-014",
+        "AC-019",
+        "AC-020",
+        "AC-021",
+        "AC-023",
+        "AC-024",
+        "AC-025"
+      ]
+    },
+    {
+      "id": "step-3-app-wiring-export",
+      "title": "Wire diagnostics + stale-export state through App.tsx and add honest stale export warning",
+      "dependsOn": [
+        "step-2-preview-epochs-retain"
+      ],
+      "how": [
+        "Add App state `diagnostic: RenderDiagnostic | null` and `isExportStale: boolean`, set by DiagramPreview's onDiagnostic/onStaleChange callbacks. Thread `diagnostic` to CodeEditor as a new optional `errorMarker?: RenderDiagnostic | null` prop.",
+        "Keep currentSvgString holding the last VALID render (already flows from onSvgRendered), so handleExport/handleCopyImage keep using it unchanged. When isExportStale, after a successful image/PNG/copy-image, additionally emit a low-emphasis toast e.g. `toast.warning('Exported last valid diagram — current source has errors')`; do NOT change the existing 'No diagram to export'/'No diagram to copy' gating strings or the 'Exported as <FMT>'/'Image copied to clipboard' success toasts.",
+        "Ensure copy-code, share, and markdown export continue to use the RAW current `code` (unchanged), so they never imply the invalid current source is valid.",
+        "Snapshot currentSvgString into a local const at the start of handleExport/handleCopyImage so export cannot race into a later cached result without an explicit user-visible state change.",
+        "Do NOT add any useLocalStorage outside App.tsx; pass all new state via props."
+      ],
+      "verification": [
+        "App-level/unit coverage where feasible (jsdom): the stale-warning path fires only when isExportStale, and all existing gating strings/toasts are intact; rely on step-6 e2e for the real export-of-retained-SVG proof.",
+        "`npm run test`, `npm run lint`, `npm run build` green; existing export/toast unit tests unchanged."
+      ],
+      "satisfiesAC": [
+        "AC-011",
+        "AC-012",
+        "AC-013",
+        "AC-027"
+      ]
+    },
+    {
+      "id": "step-4-completions-lib",
+      "title": "Create the pure, unit-testable completions/snippets library (src/lib/completions.ts)",
+      "dependsOn": [
+        "step-1-render-core"
+      ],
+      "how": [
+        "Add src/lib/completions.ts (framework-free, no Monaco import) exporting: keyword vocabulary derived from CodeEditor.mermaidLanguageDefinition arrays (diagramTypes declarations + per-type keyword lists + node-shape/arrow tokens) and `STARTER_SNIPPETS: Record<DiagramType, string>` where each snippet is sourced from the corresponding e2e-validated DIAGRAM_EXAMPLES entry (one working example per DiagramType).",
+        "Export `detectContextType(code): DiagramType | null` (first non-comment line) and `buildCompletions(code): { keywords: string[]; snippets: { label: string; insertText: string }[] }` that is context-aware for the detected type with a generic keyword + all-types-snippet fallback for unrecognized/empty input.",
+        "Keep completions synchronous and side-effect-free so they are unit-testable and reusable, and available independent of render success.",
+        "If the keyword arrays currently live only inside CodeEditor.tsx, export them from there (or move to constants) so both CodeEditor and completions.ts consume one source of truth without duplication."
+      ],
+      "verification": [
+        "src/lib/completions.test.ts: for ALL 20 DiagramType categories buildCompletions yields non-empty keywords and ≥1 starter snippet; each snippet equals a real DIAGRAM_EXAMPLES entry (which tests/e2e/diagrams.spec.ts already renders on Mermaid 11.12.2); detectContextType maps representative first-lines correctly; generic fallback returned for gibberish/empty.",
+        "`npx vitest run src/lib/completions.test.ts`, full `npm run test`, `npm run lint`."
+      ],
+      "satisfiesAC": [
+        "AC-028",
+        "AC-029"
+      ]
+    },
+    {
+      "id": "step-5-codeeditor-markers-completions",
+      "title": "Add the Monaco best-effort marker + idempotent synchronous completion provider to CodeEditor",
+      "dependsOn": [
+        "step-3-app-wiring-export",
+        "step-4-completions-lib"
+      ],
+      "how": [
+        "Add the optional `errorMarker?: RenderDiagnostic | null` prop. In an effect keyed on errorMarker + editor readiness, call `monaco.editor.setModelMarkers(model, 'mermaid', [...])` with at most ONE IMarkerData (MarkerSeverity.Error, `message` = the full readable error text, 1-based startLineNumber/startColumn/endColumn from location; when location is null use whole-line-1). Set an empty markers array (clear) when errorMarker is null / on render success — markers derive ONLY from the committed diagnostic so they cannot diverge from the preview (single-path).",
+        "Register the completion provider exactly once via a module-level boolean guard inside handleEditorDidMount (CodeEditor is lazy-loaded and StrictMode double-invokes onMount): `monaco.languages.registerCompletionItemProvider('mermaid', { provideCompletionItems(model, position) { return { suggestions } } })` built synchronously from `buildCompletions(model.getValue())`; completions must work regardless of render success.",
+        "Do NOT change the existing language registration, Monarch tokenizer, or theme setup — add markers and completions alongside them inside handleEditorDidMount / a marker effect.",
+        "Rely on owner-'mermaid' markers so Monaco's native F8 / Shift+F8 diagnostic navigation works unchanged; do NOT intercept F8/Escape (Escape is owned by fullscreen per use-keyboard-shortcuts)."
+      ],
+      "verification": [
+        "Monaco markers/squiggly/completions cannot run in jsdom → proven by e2e in step-6. Add only a light unit test for prop plumbing / provider-guard idempotency where feasible.",
+        "`npm run test`, `npm run lint`, `npm run build` green."
+      ],
+      "satisfiesAC": [
+        "AC-017",
+        "AC-018",
+        "AC-022",
+        "AC-028"
+      ]
+    },
+    {
+      "id": "step-6-e2e-docs-verify",
+      "title": "Integration proof (Playwright e2e), documentation, and full verification gate",
+      "dependsOn": [
+        "step-5-codeeditor-markers-completions"
+      ],
+      "how": [
+        "Add tests/e2e/render-resilience.spec.ts (real Monaco + mermaid at :5000): valid→invalid keeps a visible <svg> in [data-testid=mermaid-diagram] (retained + dimmed), a single red .squiggly-error marker appears on the reported line, NO blocking card while last-good exists, document.body has 0 orphan mermaid render nodes after an invalid→valid burst, image/PNG/copy-image stay enabled and emit the stale-warning toast, cold-start (empty then invalid) shows the full Syntax Error card, changing the root diagram directive to a different type clears the retained preview, and F8 navigates the diagnostic.",
+        "Add tests/e2e/completions.spec.ts: trigger Ctrl+Space in two diagram contexts and assert context keyword + starter-snippet suggestions appear independent of render state.",
+        "Keep tests/e2e/diagrams.spec.ts (already renders+asserts all 20 DiagramType examples on Mermaid 11.12.2 = AC-029 proof) and app/actions specs green.",
+        "Docs: add docs/ADR/002-render-pipeline-error-resilience.md (AGENT.md template) documenting serialized config+render + commit epochs, type-scoped retain-and-dim, best-effort single marker, and export-of-retained-SVG semantics; update docs/ARCHITECTURE_GUIDELINES.md §2.1 and docs/AGENT.md for the new DiagramPreview error contract; add a docs/history/ note (blank-on-error → retain-and-dim).",
+        "Run the full gate: `npm run lint`, `npm run test`, `npm run build`, and `npm run test:e2e` where runnable. If the e2e chromium/web-server cannot start in the sandbox, ensure specs are lint/type-clean and defer execution proof to CI (.github/workflows/ci.yml)."
+      ],
+      "verification": [
+        "All gates green; unit baseline 127 pass / 2 skip preserved with the new mermaid/DiagramPreview/completions tests added in lockstep; e2e render-resilience + completions pass locally or in CI.",
+        "e2e/visual check that the retained diagram dims (~45%) and matches mermaid.live-style behavior (retained-dimmed + squiggly, no blocking card, exports enabled)."
+      ],
+      "satisfiesAC": [
+        "AC-001",
+        "AC-011",
+        "AC-012",
+        "AC-017",
+        "AC-020",
+        "AC-022",
+        "AC-023",
+        "AC-024",
+        "AC-028",
+        "AC-029"
+      ]
+    }
+  ],
+  "acceptanceContract": "AC-001 isolation: the serialized critical section re-establishes each request's effective config (init gated on config-key change) and renders into a detached offscreen container, so no request observes another's config or DOM and overlapping requests cannot interleave. AC-002/AC-015/AC-026: the queue's finally restores shared config to last-good/baseline on success-not-committed, parse failure, throw, cancel, and unmount; a bad config never advances committedConfig, and an uninterruptible op finishing after unmount still restores config and cannot commit. AC-003/AC-004/AC-005/AC-016: a monotonic render token + mount guard let only the newest logical request commit SVG/diagnostics/markers/export-source/last-good/displayed state; last-good content identity is (code, effectiveConfig, svg) with no render ID, enabling A→B→A convergence and proven-current reuse only. AC-006/AC-009/AC-010: invalid input retains and dims only the most recently committed good code/config/SVG when detectDiagramType still matches, clears incompatible retained output on type/root-directive change, and empties everything on empty source so a later invalid edit shows the full error. AC-007/AC-017/AC-018/AC-027/AC-030: diagnostics derive solely from the single debounced render rejection via extractErrorLocation, surfaced as at most one best-effort owner-'mermaid' marker carrying the complete message (precise location when trustworthy, else whole-line-1, never invented), cleared/replaced on change or success, so markers and preview never diverge. AC-008: with no last-good, invalid input shows the full blocking error card. AC-011/AC-012/AC-013: image export/copy use exactly the retained displayed SVG (post prepareSVGForExport), snapshotted at click, with a non-silent stale warning; copy-code/share/markdown use raw source; export cannot race into a later cache without a user-visible state change. AC-014: unmount cancels pending/debounced/in-flight commits. AC-019/AC-020/AC-021: a slim persistent feedback region never obscures the retained preview, syntax errors announce via aria-live polite, and the dimmed preview exposes an accessible paused/last-valid description. AC-022: owner-'mermaid' markers keep native F8/Shift+F8. AC-023: dependency load failure shows a Retry panel with the editor still functional. AC-024/AC-025: typing is never blocked (300ms debounce + lazy load preserved; skeleton only on cold-start) and no temporary DOM/shared-config leaks after invalid→valid bursts. AC-028/AC-029: synchronous idempotent completions provide keywords + a real DIAGRAM_EXAMPLES-backed starter snippet for all 20 categories independent of render success, and all 20 still render on Mermaid 11.12.2. Gates: npm run lint, npm run test (127 pass / 2 skip preserved, updated tests in lockstep), npm run build, and npm run test:e2e where runnable, all green.",
+  "acceptanceCriteriaCoverage": {
+    "AC-001": "step-1-render-core: serialized config+render critical section + offscreen container; verified in mermaid.test.ts + render-resilience.spec.ts",
+    "AC-002": "step-1-render-core: finally restores config on every non-success outcome",
+    "AC-003": "step-2-preview-epochs-retain: commit token + mount guard on all user-visible surfaces",
+    "AC-004": "step-2: monotonic token converges to the newest logical request even with an identical input tuple",
+    "AC-005": "step-1/step-2: cache keyed by (code, normalizeConfigKey(config)); reuse only when proven current",
+    "AC-006": "step-2: type-scoped retain-and-dim of the last committed good code/config/SVG",
+    "AC-007": "step-2: diagnostic committed only for the current token",
+    "AC-008": "step-2: cold-start full blocking card when no last-good exists",
+    "AC-009": "step-2: detectDiagramType mismatch / removed root directive clears incompatible retained output",
+    "AC-010": "step-2: empty source clears svg/error/markers/last-good; subsequent invalid shows full error",
+    "AC-011": "step-3: non-silent stale-warning toast on visual export of retained SVG",
+    "AC-012": "step-3: image/PNG/copy use exactly currentSvgString (retained SVG) post-preparation",
+    "AC-013": "step-3: click-time snapshot prevents export racing into a later cache",
+    "AC-014": "step-2: unmount cancels pending/debounced/in-flight commits",
+    "AC-015": "step-1: uninterruptible op restores config and cannot commit (token/mount guard)",
+    "AC-016": "step-1/step-2: cache identity = code+effectiveConfig+svg, no render ID",
+    "AC-017": "step-5: single best-effort marker; full diagnostics shown even without a reliable location",
+    "AC-018": "step-5: marker carries the complete message, cleared/replaced on change or success",
+    "AC-019": "step-2: slim persistent feedback region that does not obscure the retained preview",
+    "AC-020": "step-2: aria-live polite syntax-error announcements",
+    "AC-021": "step-2: accessible paused/last-valid description on the dimmed preview",
+    "AC-022": "step-5: owner-'mermaid' markers preserve native F8/Shift+F8",
+    "AC-023": "step-2: dependency-failure Retry panel with the editor still functional",
+    "AC-024": "step-2: preserves 300ms debounce + lazy load; typing never blocked by rendering",
+    "AC-025": "step-1: offscreen container + finally cleanup; verified no body orphans after bursts",
+    "AC-026": "step-1: native reset-then-merge + no committedConfig advance on config-only failure",
+    "AC-027": "step-2/step-3/step-5: markers and preview both derive from the same debounced attempt",
+    "AC-028": "step-4/step-5: synchronous idempotent context-aware completions for all 20 types",
+    "AC-029": "step-4: snippets == DIAGRAM_EXAMPLES entries validated by diagrams.spec.ts on 11.12.2",
+    "AC-030": "step-1: extractErrorLocation best-effort chain + always-visible full message"
+  },
+  "testStrategy": "Pure logic is unit-tested with Vitest+jsdom against stable seams: extractErrorLocation over the exact captured jison ('Parse error on line N' + hash.loc), 'Lexical error on line N' + hash.line, langium 'at offset: N', frontmatter-shifted, and CRLF strings plus the null fallback; detectDiagramType; isDependencyError; serialization ordering via two overlapping renders with per-test manually-resolved mock promises (asserting no interleave and config restored after a reject); offscreen-container cleanup via document.body DOM assertions; last-good retention via resolve-then-reject in DiagramPreview; and buildCompletions across all 20 DiagramType categories. Because jsdom cannot exercise real Mermaid parsers ('DOMPurify.addHook is not a function' for class/mindmap) or Monaco, marker squiggles, real error lines, DOM-leak absence, completions, and export-of-retained-SVG are proven only by Playwright e2e at :5000 (render-resilience.spec.ts, completions.spec.ts), with the existing diagrams.spec.ts validating all 20 snippets render on Mermaid 11.12.2. The global src/test/setup.ts mermaid mock is left behavior-unchanged (its render vi.fn already ignores the extra container arg, keeping the 127-pass/2-skip baseline); ordering control is done via per-test overrides. The existing DiagramPreview error test asserts only '.diagram-preview-bg', so retain-and-dim does not break it.",
+  "risks": [
+    "Serialization could add latency if many renders queue; mitigated by the 300ms debounce (typically one render in flight), config-key-gated init, and optional short-circuit of superseded queued renders.",
+    "Frontmatter/%%{init}%% directives shift Mermaid-reported lines vs editor lines; the standard is best-effort bounded placement with the full message always visible (optional directive/frontmatter offset correction is deferred, not required for v1).",
+    "Playwright e2e may not run in the build sandbox (chromium/web-server on :5000); if so, keep specs lint/type-clean and defer execution proof to CI (.github/workflows/ci.yml), where diagrams.spec.ts and unit tests still cover the inventory and pure logic.",
+    "StrictMode double-mount / lazy load could duplicate the Monaco completion provider; mitigated by a module-level idempotent registration guard.",
+    "Extracting the keyword vocabulary out of CodeEditor for reuse in completions.ts risks accidental duplication/drift; mitigated by a single exported source of truth consumed by both."
+  ],
+  "blastRadius": "wide",
+  "reversible": true,
+  "touchedPaths": [
+    "src/types/index.ts",
+    "src/lib/mermaid.ts",
+    "src/lib/mermaid.test.ts",
+    "src/lib/completions.ts",
+    "src/lib/completions.test.ts",
+    "src/components/DiagramPreview.tsx",
+    "src/components/DiagramPreview.test.tsx",
+    "src/App.tsx",
+    "src/components/CodeEditor.tsx",
+    "tests/e2e/render-resilience.spec.ts",
+    "tests/e2e/completions.spec.ts",
+    "docs/ADR/002-render-pipeline-error-resilience.md",
+    "docs/ARCHITECTURE_GUIDELINES.md",
+    "docs/AGENT.md",
+    "docs/history/README.md"
+  ],
+  "proposeIssueInstead": false,
+  "openQuestions": [
+    "Can the Playwright e2e suite (chromium + web server on :5000) actually run in the build sandbox, or must render-resilience/completions specs be validated only for lint/type-cleanliness with execution proof deferred to CI? (Non-blocking: unit tests + existing diagrams.spec.ts still cover pure logic and the 20-snippet inventory.)"
+  ],
+  "deferredByDesign": [
+    "Viewer polish: cursor-anchored zoom, true fit-to-content, auto-fit-on-new-diagram (they touch export/screenshot stability and the e2e-visible 100% default) — deferred per the editor-focused charter and SCOPE constraint.",
+    "Formatter/prettify and any persisted editor-settings toggle for autocomplete — completions ship always-on to keep scope tight.",
+    "Optional frontmatter/%%{init}%% marker line-offset correction — accept known imprecision + always-visible full message for v1.",
+    "Bundling Monaco locally — rejected: contradicts the documented offline-after-initial-load + external-CDN-permitted posture and the no-heavy-deps perf budget."
+  ]
+}

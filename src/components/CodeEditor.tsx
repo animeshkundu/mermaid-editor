@@ -1,96 +1,24 @@
-import { Editor, OnMount } from '@monaco-editor/react';
-import { EditorSettings } from '@/types';
+import { Editor, type Monaco, type OnMount } from '@monaco-editor/react';
+import type { EditorSettings, RenderDiagnostic } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { buildCompletions, MERMAID_LANGUAGE_KEYWORDS } from '@/lib/completions';
 
-interface CodeEditorProps {
+type CodeEditorProps = {
   value: string;
   onChange: (value: string) => void;
   settings: EditorSettings;
-}
+  errorMarker?: RenderDiagnostic | null;
+};
+
+type MonacoEditor = Parameters<OnMount>[0];
+let completionProviderRegistered = false;
 
 // Mermaid language definition with comprehensive syntax highlighting
 const mermaidLanguageDefinition = {
   defaultToken: '',
   ignoreCase: true,
-
-  // Diagram type keywords
-  diagramTypes: [
-    'graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'stateDiagram',
-    'stateDiagram-v2', 'erDiagram', 'gantt', 'pie', 'journey', 'gitGraph',
-    'mindmap', 'timeline', 'quadrantChart', 'requirementDiagram', 'C4Context',
-    'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment', 'sankey-beta',
-    'xychart-beta', 'block-beta', 'packet-beta', 'kanban', 'architecture-beta',
-  ],
-
-  // Block/structure keywords
-  blockKeywords: [
-    'subgraph', 'end', 'loop', 'alt', 'else', 'opt', 'par', 'and', 'break',
-    'critical', 'rect', 'box', 'section', 'autonumber', 'title', 'accTitle',
-    'accDescr', 'direction', 'class', 'callback', 'click', 'style', 'linkStyle',
-  ],
-
-  // Sequence diagram specific
-  sequenceKeywords: [
-    'participant', 'actor', 'activate', 'deactivate', 'Note', 'note',
-    'over', 'left', 'right', 'of', 'links', 'link', 'destroy', 'create',
-  ],
-
-  // Flowchart direction keywords
-  directions: ['TD', 'TB', 'BT', 'RL', 'LR'],
-
-  // Class diagram keywords
-  classKeywords: [
-    'class', 'interface', 'annotation', 'namespace',
-  ],
-
-  // Gantt keywords  
-  ganttKeywords: [
-    'dateFormat', 'axisFormat', 'excludes', 'includes', 'todayMarker',
-    'done', 'active', 'crit', 'after', 'milestone',
-  ],
-
-  // Git graph keywords
-  gitKeywords: [
-    'commit', 'branch', 'checkout', 'merge', 'cherry-pick', 'tag',
-  ],
-
-  // ER diagram keywords
-  erKeywords: [
-    'string', 'int', 'float', 'boolean', 'date', 'datetime', 'enum', 'PK', 'FK', 'UK',
-  ],
-
-  // State diagram keywords
-  stateKeywords: [
-    'state', 'fork', 'join', 'choice', 'note',
-  ],
-
-  // C4 diagram keywords
-  c4Keywords: [
-    'Person', 'Person_Ext', 'System', 'System_Ext', 'SystemDb', 'SystemDb_Ext',
-    'SystemQueue', 'SystemQueue_Ext', 'Container', 'Container_Ext', 'ContainerDb',
-    'ContainerDb_Ext', 'ContainerQueue', 'ContainerQueue_Ext', 'Component',
-    'Component_Ext', 'ComponentDb', 'ComponentDb_Ext', 'ComponentQueue',
-    'ComponentQueue_Ext', 'Boundary', 'Enterprise_Boundary', 'System_Boundary',
-    'Container_Boundary', 'Deployment_Node', 'Node', 'Node_L', 'Node_R',
-    'Rel', 'Rel_U', 'Rel_D', 'Rel_L', 'Rel_R', 'Rel_Back', 'BiRel', 'BiRel_U',
-    'BiRel_D', 'BiRel_L', 'BiRel_R', 'UpdateElementStyle', 'UpdateRelStyle',
-    'UpdateLayoutConfig',
-  ],
-
-  // Requirement diagram keywords  
-  requirementKeywords: [
-    'requirement', 'functionalRequirement', 'interfaceRequirement',
-    'performanceRequirement', 'physicalRequirement', 'designConstraint',
-    'element', 'satisfies', 'traces', 'contains', 'derives', 'refines',
-    'copies', 'verifies',
-  ],
-
-  // Architecture diagram keywords
-  architectureKeywords: [
-    'service', 'group', 'junction', 'database', 'disk', 'server', 'cloud',
-    'internet', 'in', 'out', 'L', 'R', 'T', 'B',
-  ],
+  ...MERMAID_LANGUAGE_KEYWORDS,
 
   tokenizer: {
     root: [
@@ -202,7 +130,7 @@ const mermaidLanguageDefinition = {
 };
 
 // Custom theme for mermaid with colors similar to MermaidChart
-const defineMermaidTheme = (monaco: any) => {
+const defineMermaidTheme = (monaco: Monaco) => {
   monaco.editor.defineTheme('mermaid-dark', {
     base: 'vs-dark',
     inherit: true,
@@ -404,8 +332,14 @@ const defineMermaidTheme = (monaco: any) => {
   });
 };
 
-export const CodeEditor = ({ value, onChange, settings }: CodeEditorProps) => {
-  const editorRef = useRef<any>(null);
+export const CodeEditor = ({
+  value,
+  onChange,
+  settings,
+  errorMarker,
+}: CodeEditorProps) => {
+  const editorRef = useRef<MonacoEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
 
   // Map editor settings theme to our custom mermaid themes
@@ -413,6 +347,7 @@ export const CodeEditor = ({ value, onChange, settings }: CodeEditorProps) => {
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
     try {
       // Register mermaid language
@@ -423,6 +358,61 @@ export const CodeEditor = ({ value, onChange, settings }: CodeEditorProps) => {
       
       // Define custom themes
       defineMermaidTheme(monaco);
+
+      if (!completionProviderRegistered) {
+        monaco.languages.registerCompletionItemProvider('mermaid', {
+          provideCompletionItems(model, position) {
+            const completions = buildCompletions(model.getValue());
+            const word = model.getWordUntilPosition(position);
+            const range = {
+              startLineNumber: position.lineNumber,
+              endLineNumber: position.lineNumber,
+              startColumn: word.startColumn,
+              endColumn: word.endColumn,
+            };
+            const lastLineNumber = model.getLineCount();
+            const replaceModelEdits = [
+              {
+                range: {
+                  startLineNumber: 1,
+                  startColumn: 1,
+                  endLineNumber: position.lineNumber,
+                  endColumn: word.startColumn,
+                },
+                text: '',
+              },
+              {
+                range: {
+                  startLineNumber: position.lineNumber,
+                  startColumn: word.endColumn,
+                  endLineNumber: lastLineNumber,
+                  endColumn: model.getLineMaxColumn(lastLineNumber),
+                },
+                text: '',
+              },
+            ];
+            const keywordSuggestions = completions.keywords.map((keyword) => ({
+              label: keyword,
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: keyword,
+              range,
+            }));
+            const snippetSuggestions = completions.snippets.map((snippet) => ({
+              label: snippet.label,
+              kind: monaco.languages.CompletionItemKind.Snippet,
+              insertText: snippet.insertText,
+              insertTextRules:
+                monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              detail: 'Mermaid starter diagram',
+              range,
+              additionalTextEdits: replaceModelEdits,
+            }));
+
+            return { suggestions: [...keywordSuggestions, ...snippetSuggestions] };
+          },
+        });
+        completionProviderRegistered = true;
+      }
       
       // Apply the theme after defining it
       monaco.editor.setTheme(settings.theme === 'vs-dark' ? 'mermaid-dark' : 'mermaid-light');
@@ -446,6 +436,61 @@ export const CodeEditor = ({ value, onChange, settings }: CodeEditorProps) => {
       });
     }
   }, [settings, isEditorReady]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const model = editor?.getModel();
+    if (!isEditorReady || !monaco || !model) {
+      return;
+    }
+
+    if (!errorMarker) {
+      monaco.editor.setModelMarkers(model, 'mermaid', []);
+      return;
+    }
+
+    const location = errorMarker.location;
+    const hasValidLine =
+      location !== null &&
+      location.line >= 1 &&
+      location.line <= model.getLineCount();
+    const line = hasValidLine ? location.line : 1;
+    const maxColumn = model.getLineMaxColumn(line);
+    let startColumn =
+      hasValidLine && location.column
+        ? Math.min(Math.max(location.column, 1), maxColumn)
+        : 1;
+    let endColumn =
+      hasValidLine && location.endColumn
+        ? Math.min(Math.max(location.endColumn, startColumn + 1), maxColumn)
+        : Math.max(startColumn + 1, maxColumn);
+    if (maxColumn > 1 && endColumn <= startColumn) {
+      startColumn = Math.max(1, startColumn - 1);
+      endColumn = Math.min(maxColumn, startColumn + 1);
+    }
+
+    monaco.editor.setModelMarkers(model, 'mermaid', [
+      {
+        severity: monaco.MarkerSeverity.Error,
+        message: errorMarker.message,
+        startLineNumber: line,
+        startColumn,
+        endLineNumber: line,
+        endColumn,
+      },
+    ]);
+  }, [errorMarker, isEditorReady]);
+
+  useEffect(
+    () => () => {
+      const model = editorRef.current?.getModel();
+      if (model && monacoRef.current) {
+        monacoRef.current.editor.setModelMarkers(model, 'mermaid', []);
+      }
+    },
+    []
+  );
 
   return (
     <div className="h-full w-full">
@@ -475,6 +520,8 @@ export const CodeEditor = ({ value, onChange, settings }: CodeEditorProps) => {
           insertSpaces: true,
           formatOnPaste: true,
           formatOnType: true,
+          quickSuggestions: true,
+          suggestOnTriggerCharacters: true,
         }}
       />
     </div>

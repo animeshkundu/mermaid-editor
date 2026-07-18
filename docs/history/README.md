@@ -36,3 +36,14 @@ See `AGENT.md` for the full template, but at minimum include:
 - Why it existed originally
 - Why it was removed
 - Any code worth preserving for reference
+
+## Behavior Changes
+
+### 2026-07-18: Blank-on-error preview
+
+The preview no longer clears a compatible last valid diagram for every syntax error. It now keeps
+that SVG in memory, dims it, and presents persistent error feedback plus a Monaco marker. Empty
+source or a changed root diagram type still clears the preview and uses the blocking error card.
+Visual exports can use the retained SVG, but always warn that current source has errors.
+
+Related: [ADR-002](../ADR/002-render-pipeline-error-resilience.md).

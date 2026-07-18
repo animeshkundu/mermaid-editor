@@ -40,7 +40,10 @@ React 19 + TypeScript app for editing Mermaid diagrams with real-time preview. A
 
 **Data flow:**
 ```
-CodeEditor → setCode(useLocalStorage) → DiagramPreview → renderMermaid() → SVG → Export
+CodeEditor -> setCode(useLocalStorage) -> DiagramPreview epoch -> serialized renderMermaid()
+     ^                                                         -> last-good SVG -> Export
+     |                                                         -> RenderDiagnostic
+     +----------------------- one Monaco marker -------------------------+
 ```
 
 **Key files:**
@@ -68,6 +71,15 @@ src/
 - **NEVER** add `useLocalStorage` calls outside `App.tsx` — pass state via props
 - All localStorage keys are centralized in `App.tsx`
 - Use `useHistory` hook for undo/redo, not custom implementations
+
+### Render Reliability
+- Treat Mermaid as a mutable singleton: configuration plus render plus cleanup stays serialized
+- Render only into detached offscreen containers and clean temporary/orphan nodes in `finally`
+- `DiagramPreview` epochs guard every SVG, diagnostic, stale, and export-source commit
+- Keep the mobile `DiagramPreview` mounted while its tab is hidden so edits still validate
+- Retain a last-good SVG only when the current root diagram type still matches
+- Monaco markers must derive from the same debounced rejection as preview feedback
+- Visual export may use retained SVG only with an explicit stale warning
 
 ### UI Conventions
 - **Components:** shadcn/ui (new-york style) — add via CLI, don't hand-write

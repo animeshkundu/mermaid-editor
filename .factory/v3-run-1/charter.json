@@ -1,0 +1,9 @@
+{
+  "repo": "animeshkundu/mermaid-editor",
+  "baseSha": "af47d8beedbc4e0af3e247e650b353f76f2129e2",
+  "spec": "have a world class mermaid-editor like its viewer counterparts, while being performant and reliable",
+  "docRefs": [],
+  "intentDigest": "4329c7c885217c69087386c5314e0450bca82ef92d782d4d35824874fb96a718",
+  "disposition": "feature",
+  "source": "dispatch"
+}

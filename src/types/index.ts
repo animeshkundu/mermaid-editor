@@ -20,6 +20,18 @@ export type DiagramType =
   | 'kanban'
   | 'architecture';
 
+export type ErrorLocation = {
+  line: number;
+  column?: number;
+  endColumn?: number;
+};
+
+export type RenderDiagnostic = {
+  message: string;
+  location: ErrorLocation | null;
+  kind: 'syntax' | 'dependency';
+};
+
 export type ExportFormat = 'svg' | 'png' | 'markdown';
 
 export type PNGScale = 1 | 2 | 3 | 4;

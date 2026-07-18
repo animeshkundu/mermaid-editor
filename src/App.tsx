@@ -13,7 +13,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toaster } from '@/components/ui/sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ExportFormat, MermaidConfig, EditorSettings, DiagramExample, MermaidTheme, PNGScale } from '@/types';
+import {
+  ExportFormat,
+  MermaidConfig,
+  EditorSettings,
+  DiagramExample,
+  MermaidTheme,
+  PNGScale,
+  RenderDiagnostic,
+} from '@/types';
 import {
   DEFAULT_DIAGRAM_CODE,
   DEFAULT_MERMAID_CONFIG,
@@ -37,6 +45,8 @@ function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentSvgString, setCurrentSvgString] = useState<string>('');
+  const [diagnostic, setDiagnostic] = useState<RenderDiagnostic | null>(null);
+  const [isExportStale, setIsExportStale] = useState(false);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
   const [appTheme, setAppTheme] = useLocalStorage<AppTheme>('app-theme', 'light');
@@ -123,19 +133,24 @@ function App() {
   }, [setConfig]);
 
   const handleExport = useCallback(async (format: ExportFormat, scale?: PNGScale) => {
+    const svgAtClick = currentSvgString;
+
     try {
-      if (!currentSvgString && format !== 'markdown') {
+      if (!svgAtClick && format !== 'markdown') {
         toast.error('No diagram to export');
         return;
       }
 
-      await exportDiagram(format, code || '', currentSvgString, { scale });
+      await exportDiagram(format, code || '', svgAtClick, { scale });
       toast.success(`Exported as ${format.toUpperCase()}`);
+      if (isExportStale && format !== 'markdown') {
+        toast.warning('Exported last valid diagram — current source has errors');
+      }
     } catch (error) {
       toast.error('Export failed');
       console.error(error);
     }
-  }, [code, currentSvgString]);
+  }, [code, currentSvgString, isExportStale]);
 
   const handleLoadExample = useCallback((example: DiagramExample) => {
     setCode(example.code);
@@ -151,19 +166,24 @@ function App() {
   }, [code]);
 
   const handleCopyImage = useCallback(async () => {
+    const svgAtClick = currentSvgString;
+
     try {
-      if (!currentSvgString) {
+      if (!svgAtClick) {
         toast.error('No diagram to copy');
         return;
       }
 
-      await copyImageToClipboard(currentSvgString);
+      await copyImageToClipboard(svgAtClick);
       toast.success('Image copied to clipboard');
+      if (isExportStale) {
+        toast.warning('Exported last valid diagram — current source has errors');
+      }
     } catch (error) {
       toast.error('Failed to copy image');
       console.error(error);
     }
-  }, [currentSvgString]);
+  }, [currentSvgString, isExportStale]);
 
   const handleSvgRendered = useCallback((svgString: string) => {
     setCurrentSvgString(svgString);
@@ -230,14 +250,22 @@ function App() {
                 value={code || ''}
                 onChange={handleCodeChange}
                 settings={editorSettings || DEFAULT_EDITOR_SETTINGS}
+                errorMarker={diagnostic}
               />
             </Suspense>
           </TabsContent>
-          <TabsContent value="preview" className="flex-1 m-0" ref={previewRef}>
+          <TabsContent
+            value="preview"
+            forceMount
+            className="flex-1 m-0 data-[state=inactive]:hidden"
+            ref={previewRef}
+          >
             <DiagramPreview 
               code={code || ''} 
               config={config || DEFAULT_MERMAID_CONFIG}
               onSvgRendered={handleSvgRendered}
+              onDiagnostic={setDiagnostic}
+              onStaleChange={setIsExportStale}
             />
           </TabsContent>
         </Tabs>
@@ -248,6 +276,8 @@ function App() {
               code={code || ''} 
               config={config || DEFAULT_MERMAID_CONFIG}
               onSvgRendered={handleSvgRendered}
+              onDiagnostic={setDiagnostic}
+              onStaleChange={setIsExportStale}
             />
           </div>
           <Button
@@ -275,6 +305,7 @@ function App() {
                   value={code || ''}
                   onChange={handleCodeChange}
                   settings={editorSettings || DEFAULT_EDITOR_SETTINGS}
+                  errorMarker={diagnostic}
                 />
               </Suspense>
             </div>
@@ -288,6 +319,8 @@ function App() {
                 code={code || ''} 
                 config={config || DEFAULT_MERMAID_CONFIG}
                 onSvgRendered={handleSvgRendered}
+                onDiagnostic={setDiagnostic}
+                onStaleChange={setIsExportStale}
               />
             </div>
           </ResizablePanel>

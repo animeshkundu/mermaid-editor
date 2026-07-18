@@ -1,0 +1,15 @@
+{
+  "verdict": {
+    "outcome": "infra-failure",
+    "decision": "revise",
+    "votes": [],
+    "dissent": [
+      "Peer call budget exhausted."
+    ]
+  },
+  "round": 3,
+  "finalRound": true,
+  "feedback": [
+    "Peer call budget exhausted."
+  ]
+}

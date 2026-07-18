@@ -1,0 +1,207 @@
+{
+  "repo": "animeshkundu/mermaid-editor",
+  "baseSha": "af47d8beedbc4e0af3e247e650b353f76f2129e2",
+  "spec": "have a world class mermaid-editor like its viewer counterparts, while being performant and reliable",
+  "docRefs": [],
+  "intentDigest": "4329c7c885217c69087386c5314e0450bca82ef92d782d4d35824874fb96a718",
+  "disposition": "feature",
+  "acceptanceCriteria": [
+    {
+      "id": "AC-001",
+      "statement": "Every render behaves as if executed alone with its requested code and effective configuration; overlapping requests cannot contaminate one another.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-002",
+      "statement": "After every successful, rejected, exceptional, cancelled, or unmounted render attempt, Mermaid's shared configuration is restored to the defined baseline or previous stable state.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-003",
+      "statement": "A superseded request cannot update the SVG, diagnostics, Monaco markers, displayed last-good state, export source, or any user-visible cache.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-004",
+      "statement": "After any edit burst, including A to B to A, the UI converges to the newest logical request rather than an earlier request with an identical input tuple.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-005",
+      "statement": "A cached result may be reused only when proven to represent the exact current code and effective configuration.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-006",
+      "statement": "When current input is invalid, the preview retains and visibly dims only the most recently committed good code, effective configuration, and SVG instead of clearing the preview.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-007",
+      "statement": "Diagnostics shown for invalid input belong to the current request; stale failures cannot replace them.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-008",
+      "statement": "When no last-good render exists, invalid input produces a complete blocking error state.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-009",
+      "statement": "Retained last-good output is scoped to the current diagram type; changing or deleting the root diagram directive clears incompatible retained output.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-010",
+      "statement": "Empty source clears the preview, errors, markers, and retained last-good state; a subsequent invalid edit therefore shows the full error state.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-011",
+      "statement": "When retained output is exportable during an invalid current request, visual export uses exactly the displayed last-good SVG and clearly warns that it represents prior code or configuration.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-012",
+      "statement": "SVG export bytes, and the SVG used to produce PNG or copied images, are identical to the retained SVG currently displayed after required export preparation.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-013",
+      "statement": "Export cannot race into using a later or different cached result without an explicit user-visible state change.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-014",
+      "statement": "Unmount invalidates pending, debounced, and in-flight UI work; no state, diagnostic, marker, DOM, or export completion is committed afterward.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-015",
+      "statement": "An internally uninterruptible Mermaid operation may finish after unmount but must restore shared configuration and remain unable to commit.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-016",
+      "statement": "The last-good cache identity is code, effective configuration, and SVG; no render ID is required in the cached content identity.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-017",
+      "statement": "Each current failure produces at most one best-effort Monaco marker when a trustworthy location is derivable; otherwise complete diagnostics appear without a marker.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-018",
+      "statement": "The marker carries the complete readable error text and is cleared or replaced whenever the current request changes or succeeds.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-019",
+      "statement": "Complete error details appear in a dedicated, persistent feedback region that does not obscure a retained preview.",
+      "kind": "edge",
+      "verifiability": "taste"
+    },
+    {
+      "id": "AC-020",
+      "statement": "Syntax errors are announced through an aria-live polite region.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-021",
+      "statement": "A retained stale preview exposes an accessible description explaining that rendering is paused and the previous valid state is shown.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-022",
+      "statement": "Monaco diagnostics remain keyboard-navigable using its standard F8 and Shift+F8 behavior.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-023",
+      "statement": "If diagramming dependencies fail during initial loading, the preview shows a clear failure message and retry action while the code editor remains functional.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-024",
+      "statement": "Typing remains responsive and is never blocked by rendering; rendering stays debounced and lazily loaded without degrading initial-load behavior.",
+      "kind": "happy",
+      "verifiability": "taste"
+    },
+    {
+      "id": "AC-025",
+      "statement": "After any render burst, temporary Mermaid DOM returns to its pre-render baseline and no render-related nodes or memory-bearing artifacts leak.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-026",
+      "statement": "Theme, layout, security, and other configuration changes cannot permanently corrupt subsequent renders or editor state.",
+      "kind": "edge",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-027",
+      "statement": "Editor markers and preview state always derive from the same debounced parse/render attempt and cannot diverge.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-028",
+      "statement": "Context-aware completions remain available independently of render success and provide keywords and drop-in templates for all 20 supported DiagramType categories.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-029",
+      "statement": "Every starter snippet for the 20 supported categories renders successfully with Mermaid 11.12.2.",
+      "kind": "happy",
+      "verifiability": "testable"
+    },
+    {
+      "id": "AC-030",
+      "statement": "Users receive an approximate error location when reliably derivable and a complete plain-text explanation even when parser location data is inaccurate or absent.",
+      "kind": "edge",
+      "verifiability": "testable"
+    }
+  ],
+  "constraints": [
+    "Mutually serialize all Mermaid singleton configuration-plus-render work; commit epochs remain a separate ordering safeguard.",
+    "Do not reinitialize Mermaid on every code edit; establish stable configuration once and isolate any request-specific configuration changes.",
+    "Apply configuration rollback and cleanup on success, parse failure, thrown exception, cancellation, and unmount.",
+    "Preserve the existing 300ms render debounce and lazy loading.",
+    "Do not add heavy dependencies or block editor input on rendering.",
+    "Diagnostics must originate from the single debounced render path, while completions remain synchronous and always available.",
+    "Preserve client-side-only operation and offline behavior after dependencies have loaded.",
+    "Do not require a render ID in persisted last-good content.",
+    "Use at most one bounded best-effort Monaco marker; do not invent an unreliable source location.",
+    "Normalize available Jison locations, message line numbers, Langium character offsets, and directive or frontmatter shifts on a best-effort basis.",
+    "No temporary rendering DOM or shared configuration may leak between requests.",
+    "Visual export from retained output must never be silent or imply that it represents invalid current source.",
+    "All 20 starter snippets must remain compatible with Mermaid 11.12.2."
+  ],
+  "complete": true,
+  "openQuestions": []
+}
