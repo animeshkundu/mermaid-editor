@@ -51,6 +51,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 export type LayoutDirection = 'horizontal' | 'vertical';
 export type AppTheme = 'light' | 'dark';
+export type ViewMode = 'code' | 'builder';
 
 interface ToolbarProps {
   onExport: (format: ExportFormat, scale?: PNGScale) => void;
@@ -66,10 +67,12 @@ interface ToolbarProps {
   onLayoutChange?: (direction: LayoutDirection) => void;
   onFullscreen?: () => void;
   onAppThemeChange?: (theme: AppTheme) => void;
+  onToggleBuilder?: () => void;
   currentCode: string;
   currentTheme?: MermaidTheme;
   currentLayout?: LayoutDirection;
   currentAppTheme?: AppTheme;
+  viewMode?: ViewMode;
   canUndo?: boolean;
   canRedo?: boolean;
 }
@@ -88,9 +91,11 @@ export const Toolbar = ({
   onLayoutChange,
   onFullscreen,
   onAppThemeChange,
+  onToggleBuilder,
   currentTheme = 'default',
   currentLayout = 'horizontal',
   currentAppTheme = 'light',
+  viewMode = 'code',
   canUndo = false,
   canRedo = false,
 }: ToolbarProps) => {
@@ -412,6 +417,21 @@ export const Toolbar = ({
             <TooltipContent>
               {currentLayout === 'horizontal' ? 'Switch to Vertical Layout' : 'Switch to Horizontal Layout'}
             </TooltipContent>
+          </Tooltip>
+
+          {/* Visual Builder toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={viewMode === 'builder' ? 'default' : 'outline'}
+                size="sm"
+                onClick={onToggleBuilder}
+              >
+                <CornersOut className="h-4 w-4 mr-2" />
+                {viewMode === 'builder' ? 'Builder Mode' : 'Open Builder'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Toggle Visual Builder (Flowchart slice)</TooltipContent>
           </Tooltip>
 
           {/* Fullscreen preview */}
