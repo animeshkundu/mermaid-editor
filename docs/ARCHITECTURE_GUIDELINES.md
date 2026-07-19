@@ -296,7 +296,7 @@ const prepareSVGForExport = (svgString: string): string => {
 
 **Challenge 4: Clipboard API**
 - **Problem**: `ClipboardItem` only accepts PNG blobs, not SVG
-- **Solution**: Always render to PNG via canvas before clipboard write
+- **Solution**: Render image copies to PNG via canvas; write prepared standalone SVG markup with `navigator.clipboard.writeText()`
 
 #### Export Formats
 

@@ -322,6 +322,11 @@ export const copyImageToClipboard = async (svgString: string): Promise<void> => 
   });
 };
 
+export const copySVGToClipboard = async (svgString: string): Promise<void> => {
+  const preparedSvg = prepareSVGForExport(svgString);
+  await navigator.clipboard.writeText(preparedSvg);
+};
+
 export const exportMarkdown = (code: string, filename: string = 'diagram.md') => {
   const markdown = `\`\`\`mermaid\n${code}\n\`\`\``;
   downloadFile(markdown, filename, 'text/markdown');

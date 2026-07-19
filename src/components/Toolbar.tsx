@@ -15,6 +15,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -31,6 +32,7 @@ import {
   Gear,
   Copy,
   Code,
+  FileSvg,
   Image as ImageIcon,
   List,
   ArrowUUpLeft,
@@ -57,6 +59,7 @@ interface ToolbarProps {
   onLoadExample: (example: DiagramExample) => void;
   onOpenConfig: () => void;
   onCopyCode: () => void;
+  onCopySvg: () => void;
   onCopyImage: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -79,6 +82,7 @@ export const Toolbar = ({
   onLoadExample,
   onOpenConfig,
   onCopyCode,
+  onCopySvg,
   onCopyImage,
   onUndo,
   onRedo,
@@ -105,6 +109,10 @@ export const Toolbar = ({
     onCopyImage();
   };
 
+  const handleCopySvg = () => {
+    onCopySvg();
+  };
+
   const handleShare = () => {
     if (onShare) {
       onShare();
@@ -124,13 +132,14 @@ export const Toolbar = ({
 
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" aria-label="Open menu">
               <List className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-80">
             <SheetHeader>
               <SheetTitle>Menu</SheetTitle>
+              <SheetDescription>Toolbar actions and settings</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
@@ -156,6 +165,10 @@ export const Toolbar = ({
                    <Button variant="outline" size="sm" onClick={handleCopy} className="w-full justify-start" data-testid="toolbar-copy-code">
                      <Copy className="h-4 w-4 mr-2" />
                      Copy Code
+                   </Button>
+                   <Button variant="outline" size="sm" onClick={handleCopySvg} className="w-full justify-start" data-testid="toolbar-copy-svg">
+                     <FileSvg className="h-4 w-4 mr-2" />
+                     Copy SVG
                    </Button>
                    <Button variant="outline" size="sm" onClick={handleCopyImage} className="w-full justify-start" data-testid="toolbar-copy-image">
                      <ImageIcon className="h-4 w-4 mr-2" />
@@ -325,6 +338,21 @@ export const Toolbar = ({
                </Button>
              </TooltipTrigger>
              <TooltipContent>Copy Code</TooltipContent>
+           </Tooltip>
+
+           <Tooltip>
+             <TooltipTrigger asChild>
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={handleCopySvg}
+                 aria-label="Copy SVG"
+                 data-testid="toolbar-copy-svg"
+               >
+                 <FileSvg className="h-4 w-4" />
+               </Button>
+             </TooltipTrigger>
+             <TooltipContent>Copy SVG</TooltipContent>
            </Tooltip>
 
            <Tooltip>

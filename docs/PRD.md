@@ -30,6 +30,6 @@ A professional, feature-complete mermaid diagram editor providing real-time prev
 - **Success Criteria**: All exports match preview exactly, PNG at 3x resolution, SVG with all styles embedded
 
 ### Clipboard Copy
-- **Functionality**: Copy diagram as PNG image directly to system clipboard
-- **Purpose**: Quick paste into documents, presentations, and chat applications
-- **Success Criteria**: Image pastes correctly in all applications, matches preview exactly
+- **Functionality**: Copy the diagram as a PNG image or standalone SVG markup directly to the system clipboard
+- **Purpose**: Quickly paste diagrams into documents or reuse portable SVG source in other tools
+- **Success Criteria**: Copied images match the preview and copied SVG includes embedded styles and standalone dimensions
