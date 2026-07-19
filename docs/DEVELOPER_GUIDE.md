@@ -28,7 +28,7 @@ The project provides a professional-grade diagram editor with real-time preview,
 - **SVG export** - Vector format with embedded styles
 - **PNG export** - Raster format at 1x-4x scale (default 3x for retina displays)
 - **Markdown export** - Code block format for documentation
-- **Clipboard copy** - Direct PNG image copy to system clipboard
+- **Clipboard copy** - Direct PNG image or self-contained SVG markup copy to system clipboard
 
 #### URL Sharing
 - **State encoding** in URL hash fragment (base64-encoded JSON)
@@ -209,6 +209,7 @@ createRoot(root).render(
 - `svgToPng()` - Renders SVG to canvas at configurable scale
 - `exportDiagram()` - Handles all export formats
 - `copyImageToClipboard()` - Clipboard API integration
+- `copySvgToClipboard()` - Prepares portable SVG markup and copies it as text
 
 #### [src/lib/share.ts](../src/lib/share.ts)
 **URL sharing** - Encodes/decodes state:

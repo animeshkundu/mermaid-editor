@@ -31,6 +31,7 @@ import {
   Gear,
   Copy,
   Code,
+  FileSvg,
   Image as ImageIcon,
   List,
   ArrowUUpLeft,
@@ -57,6 +58,7 @@ interface ToolbarProps {
   onLoadExample: (example: DiagramExample) => void;
   onOpenConfig: () => void;
   onCopyCode: () => void;
+  onCopySvg: () => void;
   onCopyImage: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -79,6 +81,7 @@ export const Toolbar = ({
   onLoadExample,
   onOpenConfig,
   onCopyCode,
+  onCopySvg,
   onCopyImage,
   onUndo,
   onRedo,
@@ -156,6 +159,10 @@ export const Toolbar = ({
                    <Button variant="outline" size="sm" onClick={handleCopy} className="w-full justify-start" data-testid="toolbar-copy-code">
                      <Copy className="h-4 w-4 mr-2" />
                      Copy Code
+                   </Button>
+                   <Button variant="outline" size="sm" onClick={onCopySvg} className="w-full justify-start" data-testid="toolbar-copy-svg">
+                     <FileSvg className="h-4 w-4 mr-2" weight="duotone" />
+                     Copy SVG
                    </Button>
                    <Button variant="outline" size="sm" onClick={handleCopyImage} className="w-full justify-start" data-testid="toolbar-copy-image">
                      <ImageIcon className="h-4 w-4 mr-2" />
@@ -325,6 +332,15 @@ export const Toolbar = ({
                </Button>
              </TooltipTrigger>
              <TooltipContent>Copy Code</TooltipContent>
+           </Tooltip>
+
+           <Tooltip>
+             <TooltipTrigger asChild>
+               <Button variant="outline" size="sm" onClick={onCopySvg} data-testid="toolbar-copy-svg">
+                 <FileSvg className="h-4 w-4" weight="duotone" />
+               </Button>
+             </TooltipTrigger>
+             <TooltipContent>Copy SVG</TooltipContent>
            </Tooltip>
 
            <Tooltip>
