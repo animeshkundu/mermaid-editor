@@ -131,22 +131,19 @@ const CodeEditor = lazy(() =>
 
 **Fallback**: `<Suspense>` with `<Skeleton>` provides visual feedback during load.
 
-#### Mermaid Module Lazy Initialization
+#### Mermaid Module Initialization and Serialization
 **Location**: [src/lib/mermaid.ts](../src/lib/mermaid.ts)
 
 ```typescript
-let isInitialized = false;
+let renderChain: Promise<unknown> = Promise.resolve();
 
-export const renderMermaid = async (code, elementId, config) => {
-  if (!isInitialized) {
-    await mermaid.initialize(config);
-    isInitialized = true;
-  }
-  // ... render logic
-};
+// Every effective-config + detached-container render + cleanup operation
+// is one critical section against Mermaid's mutable singleton.
 ```
 
-**Why**: Mermaid initialization is expensive. Only initialize once, on first render.
+Configuration is normalized and initialized only when its effective value changes. Failed,
+superseded, and unmounted operations restore the last committed configuration before the queue is
+released.
 
 ---
 
@@ -162,18 +159,21 @@ export const renderMermaid = async (code, elementId, config) => {
 - Syntax highlighting (uses `mermaid` language mode)
 - Code editing with undo/redo (separate from diagram history)
 - Keyboard shortcuts integration
-- Auto-completion and validation (if implemented)
+- Synchronous context-aware keyword and starter-snippet completion
+- One best-effort marker from the committed debounced render diagnostic
 
 **Interface Contract**:
 ```typescript
-interface CodeEditorProps {
-  code: string;
+type CodeEditorProps = {
+  value: string;
   onChange: (newCode: string) => void;
-  editorSettings: EditorSettings;
-}
+  settings: EditorSettings;
+  errorMarker?: RenderDiagnostic | null;
+};
 ```
 
 **Key Pattern**: Controlled component. `App.tsx` owns the code state; editor is a pure UI.
+Markers use owner `mermaid`, so Monaco's native F8 and Shift+F8 navigation remains available.
 
 **Why Monaco**: 
 - Industry-standard editor (VS Code's core)
@@ -190,9 +190,11 @@ interface CodeEditorProps {
 
 **Architecture**:
 ```
-Code → renderMermaid() → Mermaid.js → SVG String → DiagramPreview Component → DOM
-                              ↓
-                        postProcessSequenceDiagramSvg() (auto-coloring)
+Code → 300 ms debounce → request epoch → serialized renderMermaid() → SVG
+                                           ↓                         ↓
+                                  detached render DOM       last-good / export
+                                           ↓                         ↓
+                                  guaranteed cleanup        preview + diagnostic
 ```
 
 **Key Functions**:
@@ -202,13 +204,19 @@ Code → renderMermaid() → Mermaid.js → SVG String → DiagramPreview Compon
 **Throws**: Parse/rendering errors
 
 **Process**:
-1. Reinitialize mermaid with new config (theme, look, etc.)
-2. Parse and validate code (`mermaid.parse()`)
-3. Render to SVG string (`mermaid.render()`)
-4. Post-process SVG (sequence diagram coloring)
-5. Return SVG string
+1. Wait for exclusive access to the Mermaid singleton.
+2. Establish the normalized effective config only when it changed.
+3. Render into a unique detached offscreen container.
+4. Post-process SVG (sequence diagram coloring).
+5. Remove temporary and orphan DOM on every outcome.
+6. Restore committed config after failure, supersession, or unmount.
+7. Return SVG string.
 
-**Config Handling**: Full re-initialization on config change ensures theme/look changes apply immediately.
+**Preview commit contract**: A monotonic epoch and mounted guard allow only the newest logical
+request to commit. Compatible syntax failures retain and dim the previous valid SVG; a changed or
+missing root type uses the blocking error card. Visual export continues from the retained SVG with
+an explicit stale warning. On mobile, the preview remains mounted while its tab is hidden so editor
+changes continue through the same render and diagnostic pipeline.
 
 #### `postProcessSequenceDiagramSvg(svg, code)`
 **Purpose**: Auto-color sequence diagram actors when user hasn't defined explicit `box` directives.

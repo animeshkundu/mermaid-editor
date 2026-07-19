@@ -1,9 +1,64 @@
 import * as mermaidAPI from 'mermaid';
-import { MermaidConfig } from '@/types';
+import { DEFAULT_MERMAID_CONFIG } from '@/lib/constants';
+import {
+  createEffectiveConfig,
+  getCommittedConfig,
+  normalizeConfigKey,
+  setCommittedConfig,
+} from '@/lib/mermaid-config';
+import {
+  extractErrorLocation,
+  extractErrorMessage,
+  isDependencyError,
+} from '@/lib/mermaid-diagnostics';
+import type { MermaidConfig } from '@/types';
+
+export { normalizeConfigKey, setCommittedConfig };
+export { extractErrorLocation, extractErrorMessage, isDependencyError };
+export { detectContextType as detectDiagramType } from '@/lib/completions';
 
 const mermaid = mermaidAPI.default || mermaidAPI;
 
-let isInitialized = false;
+let renderChain: Promise<unknown> = Promise.resolve();
+let lastAppliedConfigKey: string | null = null;
+let renderSequence = 0;
+
+type RenderOptions = {
+  isCurrent?: () => boolean;
+};
+
+const enqueue = <T>(task: () => Promise<T>): Promise<T> => {
+  const result = renderChain.then(task, task);
+
+  // Keep the queue closed for one microtask after publishing a result so the
+  // successful preview committer can advance the rollback baseline.
+  renderChain = result.then(
+    async () => {
+      await Promise.resolve();
+    },
+    async () => {
+      await Promise.resolve();
+    }
+  );
+
+  return result;
+};
+
+const applyConfig = (config: MermaidConfig): void => {
+  const effectiveConfig = createEffectiveConfig(config);
+  mermaid.initialize(effectiveConfig as any);
+  lastAppliedConfigKey = normalizeConfigKey(effectiveConfig);
+};
+
+const applyConfigIfNeeded = (config: MermaidConfig): void => {
+  if (normalizeConfigKey(config) !== lastAppliedConfigKey) {
+    applyConfig(config);
+  }
+};
+
+const restoreCommittedConfig = (): void => {
+  applyConfig(getCommittedConfig() || DEFAULT_MERMAID_CONFIG);
+};
 
 // Elegant colors for auto-coloring sequence diagram participants
 // Hex format for SVG fill attributes
@@ -79,8 +134,6 @@ export const postProcessSequenceDiagramSvg = (svg: string, code: string): string
   }
   
   if (actorRects.length === 0) {
-    // Debug: log what we have
-    console.log('No actor rects found. SVG structure:', doc.documentElement.innerHTML.substring(0, 500));
     return svg;
   }
   
@@ -137,31 +190,77 @@ export const postProcessSequenceDiagramSvg = (svg: string, code: string): string
 };
 
 export const initializeMermaid = (config: MermaidConfig = {}) => {
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: config.theme || 'base',
-    look: config.look || 'classic',
-    fontFamily: config.fontFamily || '"Inter", "Segoe UI", sans-serif',
-    themeVariables: config.themeVariables || {},
-    ...config,
-  } as any);
-  isInitialized = true;
+  applyConfig(config);
 };
 
 export const renderMermaid = async (
   code: string,
   elementId: string,
-  config?: MermaidConfig
-): Promise<{ svg: string }> => {
-  if (!isInitialized || config) {
-    initializeMermaid(config);
-  }
+  config: MermaidConfig = DEFAULT_MERMAID_CONFIG,
+  options?: RenderOptions
+): Promise<{ svg: string }> =>
+  enqueue(async () => {
+    const effectiveConfig = createEffectiveConfig(config);
+    const supportsRenderContainer = mermaid.render.length >= 3;
+    const renderId = supportsRenderContainer
+      ? `${elementId}-${++renderSequence}`
+      : elementId;
+    const container = document.createElement('div');
+    container.dataset.mermaidRenderContainer = renderId;
+    Object.assign(container.style, {
+      position: 'absolute',
+      left: '-99999px',
+      top: '0',
+      visibility: 'hidden',
+    });
 
-  const { svg } = await mermaid.render(elementId, code);
-  // Post-process to auto-color sequence diagram actors
-  const processedSvg = postProcessSequenceDiagramSvg(svg, code);
-  return { svg: processedSvg };
-};
+    let renderError: unknown;
+    let rollbackError: unknown;
+    let result: { svg: string } | undefined;
+    let shouldRestoreConfig = true;
+
+    document.body.appendChild(container);
+
+    try {
+      applyConfigIfNeeded(effectiveConfig);
+      const { svg } = supportsRenderContainer
+        ? await mermaid.render(renderId, code, container)
+        : await mermaid.render(renderId, code);
+      const processedSvg = postProcessSequenceDiagramSvg(svg, code);
+      shouldRestoreConfig = options?.isCurrent ? !options.isCurrent() : false;
+      result = { svg: processedSvg };
+    } catch (error) {
+      renderError = error;
+    } finally {
+      container.remove();
+      document.getElementById(`d${renderId}`)?.remove();
+      document.getElementById(renderId)?.remove();
+      document.getElementById(`i${renderId}`)?.remove();
+    }
+
+    if (shouldRestoreConfig) {
+      try {
+        restoreCommittedConfig();
+      } catch (error) {
+        rollbackError = error;
+      }
+    }
+
+    if (renderError !== undefined) {
+      if (rollbackError !== undefined) {
+        console.error('Failed to restore Mermaid configuration after render failure', rollbackError);
+      }
+      throw renderError;
+    }
+    if (rollbackError !== undefined) {
+      throw rollbackError;
+    }
+    if (!result) {
+      throw new Error('Mermaid render completed without SVG output');
+    }
+
+    return result;
+  });
 
 export const validateMermaidSyntax = async (code: string): Promise<boolean> => {
   try {
@@ -170,11 +269,4 @@ export const validateMermaidSyntax = async (code: string): Promise<boolean> => {
   } catch {
     return false;
   }
-};
-
-export const extractErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
 };
