@@ -27,7 +27,7 @@ import {
   DEFAULT_MERMAID_CONFIG,
   DEFAULT_EDITOR_SETTINGS,
 } from '@/lib/constants';
-import { exportDiagram, copyImageToClipboard } from '@/lib/export';
+import { copyImageToClipboard, copySVGToClipboard, exportDiagram } from '@/lib/export';
 import { copyShareUrl, parseUrlState } from '@/lib/share';
 import { useHistory } from '@/hooks/use-history';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -185,6 +185,26 @@ function App() {
     }
   }, [currentSvgString, isExportStale]);
 
+  const handleCopySvg = useCallback(async () => {
+    const svgAtClick = currentSvgString;
+
+    try {
+      if (!svgAtClick) {
+        toast.error('No diagram to copy');
+        return;
+      }
+
+      await copySVGToClipboard(svgAtClick);
+      toast.success('SVG copied to clipboard');
+      if (isExportStale) {
+        toast.warning('Exported last valid diagram — current source has errors');
+      }
+    } catch (error) {
+      toast.error('Failed to copy SVG');
+      console.error(error);
+    }
+  }, [currentSvgString, isExportStale]);
+
   const handleSvgRendered = useCallback((svgString: string) => {
     setCurrentSvgString(svgString);
   }, []);
@@ -208,6 +228,7 @@ function App() {
         onLoadExample={handleLoadExample}
         onOpenConfig={() => setIsConfigOpen(true)}
         onCopyCode={handleCopyCode}
+        onCopySvg={handleCopySvg}
         onCopyImage={handleCopyImage}
         onUndo={handleUndo}
         onRedo={handleRedo}

@@ -28,7 +28,7 @@ The project provides a professional-grade diagram editor with real-time preview,
 - **SVG export** - Vector format with embedded styles
 - **PNG export** - Raster format at 1x-4x scale (default 3x for retina displays)
 - **Markdown export** - Code block format for documentation
-- **Clipboard copy** - Direct PNG image copy to system clipboard
+- **Clipboard copy** - Direct PNG image and standalone SVG markup copy to system clipboard
 
 #### URL Sharing
 - **State encoding** in URL hash fragment (base64-encoded JSON)
@@ -490,7 +490,8 @@ const handleExport = useCallback(async (format: ExportFormat, scale: PNGScale) =
 - **SVG** - Exports prepared SVG with inlined styles
 - **PNG** - Runs SVG → Canvas → PNG pipeline at selected scale
 - **Markdown** - Wraps code in mermaid code block
-- **Clipboard** - Same as PNG export but uses Clipboard API
+- **Clipboard image** - Same as PNG export but uses the binary Clipboard API
+- **Clipboard SVG** - Writes the prepared standalone SVG export markup as text
 
 ---
 
