@@ -322,6 +322,16 @@ export const copyImageToClipboard = async (svgString: string): Promise<void> => 
   });
 };
 
+export const copySvgToClipboard = async (svgString: string): Promise<void> => {
+  const preparedSvg = prepareSVGForExport(svgString);
+
+  try {
+    await navigator.clipboard.writeText(preparedSvg);
+  } catch (err) {
+    throw new Error('Clipboard access denied: ' + String(err));
+  }
+};
+
 export const exportMarkdown = (code: string, filename: string = 'diagram.md') => {
   const markdown = `\`\`\`mermaid\n${code}\n\`\`\``;
   downloadFile(markdown, filename, 'text/markdown');

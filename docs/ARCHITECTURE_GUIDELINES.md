@@ -294,9 +294,9 @@ const prepareSVGForExport = (svgString: string): string => {
 - **Problem**: Large diagrams at 3x scale exceed browser canvas limits (268M pixels)
 - **Solution**: `getMaxSafeScale()` auto-reduces scale (3x → 2x → 1x)
 
-**Challenge 4: Clipboard API**
-- **Problem**: `ClipboardItem` only accepts PNG blobs, not SVG
-- **Solution**: Always render to PNG via canvas before clipboard write
+**Challenge 4: Clipboard APIs**
+- **Problem**: Clipboard image writes require PNG blobs, while reusable SVG markup is text
+- **Solution**: Render image copies to PNG for `clipboard.write()`; prepare SVG exports and use `clipboard.writeText()` for markup copies
 
 #### Export Formats
 
