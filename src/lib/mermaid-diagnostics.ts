@@ -1,4 +1,5 @@
-import type { ErrorLocation } from '@/types';
+import { isRenderLimitError } from '@/lib/render-guard';
+import type { ErrorLocation, RenderDiagnostic } from '@/types';
 
 type MermaidErrorShape = {
   message?: unknown;
@@ -96,3 +97,16 @@ export const isDependencyError = (error: unknown): boolean => {
     message
   );
 };
+
+export const createRenderDiagnostic = (
+  error: unknown,
+  code: string
+): RenderDiagnostic => ({
+  message: extractErrorMessage(error),
+  location: isRenderLimitError(error) ? null : extractErrorLocation(error, code),
+  kind: isRenderLimitError(error)
+    ? 'limit'
+    : isDependencyError(error)
+      ? 'dependency'
+      : 'syntax',
+});

@@ -1,4 +1,5 @@
 import { ExportFormat } from '@/types';
+import { sanitizeRenderedSvg } from '@/lib/sanitize-source';
 
 const downloadFile = (content: string | Blob, filename: string, mimeType: string) => {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
@@ -82,7 +83,7 @@ const getSVGDimensions = (svgString: string): { width: number; height: number } 
 };
 
 const prepareSVGForExport = (svgString: string): string => {
-  const svgElement = parseSVGString(svgString);
+  const svgElement = parseSVGString(sanitizeRenderedSvg(svgString));
   
   svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
@@ -181,6 +182,25 @@ const prepareSVGForExport = (svgString: string): string => {
 const MAX_CANVAS_DIMENSION = 16384;
 const MAX_CANVAS_PIXELS = 268435456; // 16384 * 16384
 
+export type RasterExportResult = {
+  requestedScale: number;
+  appliedScale: number;
+  scaleReduced: boolean;
+  width: number;
+  height: number;
+};
+
+export class ExportDimensionError extends Error {
+  constructor(width: number, height: number) {
+    super(
+      `This diagram is ${width.toLocaleString()} x ${height.toLocaleString()} pixels before scaling, ` +
+        `which exceeds the browser's safe canvas limit of ${MAX_CANVAS_DIMENSION.toLocaleString()} pixels ` +
+        'per side. Export as SVG for full fidelity or simplify the diagram before exporting as PNG.'
+    );
+    this.name = 'ExportDimensionError';
+  }
+}
+
 /**
  * Calculate the maximum safe scale for a canvas given its dimensions
  */
@@ -200,14 +220,22 @@ const getMaxSafeScale = (width: number, height: number, requestedScale: number):
     }
     scale--;
   }
+
+  if (
+    width * scale > MAX_CANVAS_DIMENSION ||
+    height * scale > MAX_CANVAS_DIMENSION ||
+    width * scale * height * scale > MAX_CANVAS_PIXELS
+  ) {
+    throw new ExportDimensionError(width, height);
+  }
   
   return scale;
 };
 
-const svgStringToCanvas = async (
+export const svgStringToCanvas = async (
   svgString: string,
   scale: number = 3
-): Promise<HTMLCanvasElement> => {
+): Promise<{ canvas: HTMLCanvasElement; result: RasterExportResult }> => {
   const preparedSvg = prepareSVGForExport(svgString);
   const { width, height } = getSVGDimensions(svgString);
 
@@ -237,6 +265,14 @@ const svgStringToCanvas = async (
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
+  const canvasResult: RasterExportResult = {
+    requestedScale: scale,
+    appliedScale: safeScale,
+    scaleReduced: safeScale < scale,
+    width: canvas.width,
+    height: canvas.height,
+  };
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -252,7 +288,7 @@ const svgStringToCanvas = async (
       clearTimeout(timeoutId);
       try {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas);
+        resolve({ canvas, result: canvasResult });
       } catch (err) {
         reject(err);
       }
@@ -278,15 +314,15 @@ export const exportPNG = async (
   svgString: string,
   filename: string = 'diagram.png',
   scale: PNGScale = 3
-): Promise<void> => {
-  const canvas = await svgStringToCanvas(svgString, scale);
+): Promise<RasterExportResult> => {
+  const { canvas, result } = await svgStringToCanvas(svgString, scale);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (blob) {
           downloadFile(blob, filename, 'image/png');
-          resolve();
+          resolve(result);
         } else {
           reject(new Error('Failed to create PNG blob'));
         }
@@ -297,8 +333,10 @@ export const exportPNG = async (
   });
 };
 
-export const copyImageToClipboard = async (svgString: string): Promise<void> => {
-  const canvas = await svgStringToCanvas(svgString, 3);
+export const copyImageToClipboard = async (
+  svgString: string
+): Promise<RasterExportResult> => {
+  const { canvas, result } = await svgStringToCanvas(svgString, 3);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -308,7 +346,7 @@ export const copyImageToClipboard = async (svgString: string): Promise<void> => 
             await navigator.clipboard.write([
               new ClipboardItem({ 'image/png': blob }),
             ]);
-            resolve();
+            resolve(result);
           } catch (err) {
             reject(new Error('Clipboard access denied: ' + String(err)));
           }
@@ -336,7 +374,7 @@ export const exportDiagram = async (
   code: string,
   svgString?: string,
   options: ExportOptions = {}
-) => {
+): Promise<RasterExportResult | null> => {
   const timestamp = new Date().toISOString().slice(0, 10);
   const filename = `mermaid-${timestamp}`;
 
@@ -345,14 +383,14 @@ export const exportDiagram = async (
       if (svgString) {
         exportSVG(svgString, `${filename}.svg`);
       }
-      break;
+      return null;
     case 'png':
       if (svgString) {
-        await exportPNG(svgString, `${filename}.png`, options.scale || 3);
+        return exportPNG(svgString, `${filename}.png`, options.scale || 3);
       }
-      break;
+      return null;
     case 'markdown':
       exportMarkdown(code, `${filename}.md`);
-      break;
+      return null;
   }
 };

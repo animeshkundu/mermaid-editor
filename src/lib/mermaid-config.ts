@@ -1,7 +1,25 @@
-import { DEFAULT_MERMAID_CONFIG } from '@/lib/constants';
+import {
+  DEFAULT_DIAGRAM_LIMITS,
+  DEFAULT_MERMAID_CONFIG,
+  FIXED_SECURITY_LEVEL,
+  HARD_DIAGRAM_CEILING,
+  MIN_DIAGRAM_LIMITS,
+} from '@/lib/constants';
 import type { MermaidConfig } from '@/types';
 
 let committedConfig: MermaidConfig | null = null;
+
+const clampLimit = (
+  value: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number
+): number => {
+  const numericValue = typeof value === 'number' && Number.isFinite(value)
+    ? Math.floor(value)
+    : fallback;
+  return Math.min(Math.max(numericValue, minimum), maximum);
+};
 
 export const createEffectiveConfig = (
   config: MermaidConfig = DEFAULT_MERMAID_CONFIG
@@ -14,6 +32,19 @@ export const createEffectiveConfig = (
     config.fontFamily ||
     DEFAULT_MERMAID_CONFIG.fontFamily ||
     '"Inter", "Segoe UI", sans-serif',
+  maxEdges: clampLimit(
+    config.maxEdges,
+    DEFAULT_DIAGRAM_LIMITS.maxEdges,
+    MIN_DIAGRAM_LIMITS.maxEdges,
+    HARD_DIAGRAM_CEILING.maxEdges
+  ),
+  maxTextSize: clampLimit(
+    config.maxTextSize,
+    DEFAULT_DIAGRAM_LIMITS.maxTextSize,
+    MIN_DIAGRAM_LIMITS.maxTextSize,
+    HARD_DIAGRAM_CEILING.maxTextSize
+  ),
+  securityLevel: FIXED_SECURITY_LEVEL,
   themeVariables: config.themeVariables || DEFAULT_MERMAID_CONFIG.themeVariables || {},
 });
 

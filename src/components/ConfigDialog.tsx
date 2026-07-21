@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -20,7 +21,12 @@ import {
 } from '@/components/ui/select';
 import { MermaidConfig, MERMAID_THEMES, MermaidTheme } from '@/types';
 import { toast } from 'sonner';
-import { DEFAULT_MERMAID_CONFIG } from '@/lib/constants';
+import {
+  DEFAULT_DIAGRAM_LIMITS,
+  DEFAULT_MERMAID_CONFIG,
+  HARD_DIAGRAM_CEILING,
+  MIN_DIAGRAM_LIMITS,
+} from '@/lib/constants';
 
 interface ConfigDialogProps {
   open: boolean;
@@ -148,6 +154,54 @@ export const ConfigDialog = ({
                     <SelectItem value="stepBefore">Step Before</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-4 rounded-lg border p-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Advanced rendering limits</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Larger values allow more complex diagrams but can take longer to render.
+                    Safe ceilings are enforced automatically.
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="max-edges">Maximum connections</Label>
+                    <Input
+                      id="max-edges"
+                      type="number"
+                      min={MIN_DIAGRAM_LIMITS.maxEdges}
+                      max={HARD_DIAGRAM_CEILING.maxEdges}
+                      value={visualConfig.maxEdges ?? DEFAULT_DIAGRAM_LIMITS.maxEdges}
+                      onChange={(event) =>
+                        handleVisualConfigChange({ maxEdges: Number(event.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Up to {HARD_DIAGRAM_CEILING.maxEdges.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="max-text-size">Maximum source characters</Label>
+                    <Input
+                      id="max-text-size"
+                      type="number"
+                      min={MIN_DIAGRAM_LIMITS.maxTextSize}
+                      max={HARD_DIAGRAM_CEILING.maxTextSize}
+                      step={1_000}
+                      value={visualConfig.maxTextSize ?? DEFAULT_DIAGRAM_LIMITS.maxTextSize}
+                      onChange={(event) =>
+                        handleVisualConfigChange({ maxTextSize: Number(event.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Up to {HARD_DIAGRAM_CEILING.maxTextSize.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Security level: <span className="font-medium text-foreground">Strict (locked)</span>
+                </p>
               </div>
 
               <div className="space-y-2">

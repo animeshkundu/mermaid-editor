@@ -43,6 +43,8 @@ import {
   CornersOut,
   Sun,
   Moon,
+  WifiHigh,
+  WifiSlash,
 } from '@phosphor-icons/react';
 import { ExportFormat, DiagramExample, MermaidTheme, MERMAID_THEMES, PNGScale, PNG_SCALE_OPTIONS } from '@/types';
 import { DIAGRAM_EXAMPLES } from '@/lib/constants';
@@ -72,6 +74,7 @@ interface ToolbarProps {
   currentAppTheme?: AppTheme;
   canUndo?: boolean;
   canRedo?: boolean;
+  isOnline?: boolean;
 }
 
 export const Toolbar = ({
@@ -93,6 +96,7 @@ export const Toolbar = ({
   currentAppTheme = 'light',
   canUndo = false,
   canRedo = false,
+  isOnline = true,
 }: ToolbarProps) => {
   const isMobile = useIsMobile();
 
@@ -114,18 +118,22 @@ export const Toolbar = ({
 
   if (isMobile) {
     return (
-      <div className="flex items-center gap-2 p-3 border-b bg-card">
+      <header className="flex items-center gap-2 border-b bg-card p-3">
         <div className="flex items-center gap-2 flex-1">
           <h1 className="text-base font-bold flex items-center gap-2">
             <Code className="h-5 w-5 text-primary" weight="duotone" />
             Mermaid
           </h1>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            {isOnline ? <WifiHigh weight="duotone" /> : <WifiSlash weight="duotone" />}
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
         </div>
 
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">
-              <List className="h-5 w-5" />
+            <Button variant="outline" size="sm" aria-label="Open editor menu">
+              <List className="h-5 w-5" weight="duotone" />
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-80">
@@ -216,18 +224,25 @@ export const Toolbar = ({
             </div>
           </SheetContent>
         </Sheet>
-      </div>
+      </header>
     );
   }
 
   return (
     <TooltipProvider>
-      <div className="flex items-center gap-2 p-3 border-b bg-card">
+      <header className="flex items-center gap-2 border-b bg-card p-3">
         <div className="flex items-center gap-2 flex-1">
           <h1 className="text-lg font-bold flex items-center gap-2">
             <Code className="h-5 w-5 text-primary" weight="duotone" />
             Mermaid Live Editor
           </h1>
+          <span
+            className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+            aria-label={isOnline ? 'Application is online' : 'Application is offline'}
+          >
+            {isOnline ? <WifiHigh weight="duotone" /> : <WifiSlash weight="duotone" />}
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -239,6 +254,7 @@ export const Toolbar = ({
                 size="sm"
                 onClick={onUndo}
                 disabled={!canUndo}
+                aria-label="Undo last change"
                 className="px-2"
               >
                 <ArrowUUpLeft className="h-4 w-4" />
@@ -254,6 +270,7 @@ export const Toolbar = ({
                 size="sm"
                 onClick={onRedo}
                 disabled={!canRedo}
+                aria-label="Redo last change"
                 className="px-2"
               >
                 <ArrowUUpRight className="h-4 w-4" />
@@ -320,7 +337,7 @@ export const Toolbar = ({
           {/* Copy buttons */}
            <Tooltip>
              <TooltipTrigger asChild>
-               <Button variant="outline" size="sm" onClick={handleCopy} data-testid="toolbar-copy-code">
+               <Button variant="outline" size="sm" onClick={handleCopy} aria-label="Copy diagram code" data-testid="toolbar-copy-code">
                  <Copy className="h-4 w-4" />
                </Button>
              </TooltipTrigger>
@@ -329,7 +346,7 @@ export const Toolbar = ({
 
            <Tooltip>
              <TooltipTrigger asChild>
-               <Button variant="outline" size="sm" onClick={handleCopyImage} data-testid="toolbar-copy-image">
+               <Button variant="outline" size="sm" onClick={handleCopyImage} aria-label="Copy diagram as image" data-testid="toolbar-copy-image">
                  <ImageIcon className="h-4 w-4" />
                </Button>
              </TooltipTrigger>
@@ -339,7 +356,7 @@ export const Toolbar = ({
           {/* Share button */}
            <Tooltip>
              <TooltipTrigger asChild>
-               <Button variant="outline" size="sm" onClick={handleShare} data-testid="toolbar-share">
+               <Button variant="outline" size="sm" onClick={handleShare} aria-label="Copy private share link" data-testid="toolbar-share">
                  <LinkIcon className="h-4 w-4" />
                </Button>
              </TooltipTrigger>
@@ -384,7 +401,7 @@ export const Toolbar = ({
           {/* Config */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={onOpenConfig}>
+              <Button variant="outline" size="sm" onClick={onOpenConfig} aria-label="Open Mermaid configuration">
                 <Gear className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -400,6 +417,7 @@ export const Toolbar = ({
                 variant="ghost" 
                 size="sm" 
                 onClick={() => onLayoutChange?.(currentLayout === 'horizontal' ? 'vertical' : 'horizontal')}
+                aria-label={currentLayout === 'horizontal' ? 'Switch to vertical layout' : 'Switch to horizontal layout'}
                 className="px-2"
               >
                 {currentLayout === 'horizontal' ? (
@@ -417,7 +435,7 @@ export const Toolbar = ({
           {/* Fullscreen preview */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={onFullscreen} className="px-2">
+              <Button variant="ghost" size="sm" onClick={onFullscreen} className="px-2" aria-label="Open fullscreen preview">
                 <CornersOut className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -431,6 +449,7 @@ export const Toolbar = ({
                 variant="ghost" 
                 size="sm" 
                 onClick={() => onAppThemeChange?.(currentAppTheme === 'light' ? 'dark' : 'light')}
+                aria-label={currentAppTheme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
                 className="px-2"
               >
                 {currentAppTheme === 'light' ? (
@@ -448,14 +467,14 @@ export const Toolbar = ({
           {/* Keyboard shortcuts */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={onShowShortcuts} className="px-2">
+              <Button variant="ghost" size="sm" onClick={onShowShortcuts} className="px-2" aria-label="Show keyboard shortcuts">
                 <Keyboard className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Keyboard Shortcuts (?)</TooltipContent>
           </Tooltip>
         </div>
-      </div>
+      </header>
     </TooltipProvider>
   );
 };

@@ -47,6 +47,13 @@ npm run test:coverage # Generate coverage report
 - `waitFor` - Wait for async updates
 - `fireEvent` / `userEvent` - Simulate user interactions
 
+**Production-browser contracts** use Playwright against `npm run preview`:
+- Establish service-worker control online before switching the context offline
+- Count all hostile-source probe requests, including same-origin requests
+- Exercise **Render now** for above-threshold fixtures
+- Query controls by role and accessible name; test keyboard pan/zoom and the resize separator
+- Measure large-diagram budgets only from a production build
+
 **Testing Library Queries** (in order of preference):
 1. `getByRole()` - Accessibility-first (preferred)
 2. `getByLabelText()` - Form inputs
@@ -435,6 +442,10 @@ it('should be keyboard accessible', () => {
   expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
 ```
+
+Security tests should bind to the public seams (`sanitizeMermaidSource`, `createEffectiveConfig`,
+`decodeState`) and observable request counts. Do not assert Mermaid's internal chunk names or render
+implementation.
 
 ---
 

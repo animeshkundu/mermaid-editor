@@ -1,4 +1,4 @@
-import { DiagramExample, MermaidConfig, EditorSettings } from '@/types';
+import { DiagramExample, MermaidConfig, EditorSettings, DiagramLimits } from '@/types';
 
 export const DEFAULT_DIAGRAM_CODE = `flowchart TD
     A[Start] --> B{Is it?}
@@ -6,6 +6,29 @@ export const DEFAULT_DIAGRAM_CODE = `flowchart TD
     C --> D[Rethink]
     D --> B
     B ---->|No| E[End]`;
+
+export const MIN_DIAGRAM_LIMITS: DiagramLimits = {
+  maxEdges: 1,
+  maxTextSize: 1_000,
+};
+
+export const DEFAULT_DIAGRAM_LIMITS: DiagramLimits = {
+  maxEdges: 1_000,
+  maxTextSize: 200_000,
+};
+
+export const HARD_DIAGRAM_CEILING: DiagramLimits = {
+  maxEdges: 1_000,
+  maxTextSize: 250_000,
+};
+
+export const INTERACTIVE_RENDER_THRESHOLD: DiagramLimits = {
+  maxEdges: 300,
+  maxTextSize: 100_000,
+};
+
+export const FIXED_SECURITY_LEVEL = 'strict' as const;
+export const RENDER_TIMEOUT_MS = 15_000;
 
 /**
  * Minimalist Beige/Neutral Theme for Mermaid Diagrams
@@ -94,6 +117,9 @@ export const MUTED_PALETTE_DARK = {
 export const DEFAULT_MERMAID_CONFIG: MermaidConfig = {
   theme: 'base',
   look: 'classic',
+  maxEdges: DEFAULT_DIAGRAM_LIMITS.maxEdges,
+  maxTextSize: DEFAULT_DIAGRAM_LIMITS.maxTextSize,
+  securityLevel: FIXED_SECURITY_LEVEL,
   fontFamily: '"Inter", "Segoe UI", sans-serif',
   themeVariables: {
     // ===========================================
@@ -771,4 +797,3 @@ export const KEYBOARD_SHORTCUTS = [
   { keys: ['Escape'], action: 'Exit fullscreen' },
   { keys: ['Ctrl', '\\'], action: 'Toggle layout direction' },
 ];
-

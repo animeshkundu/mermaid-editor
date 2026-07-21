@@ -29,7 +29,7 @@ export type ErrorLocation = {
 export type RenderDiagnostic = {
   message: string;
   location: ErrorLocation | null;
-  kind: 'syntax' | 'dependency';
+  kind: 'syntax' | 'dependency' | 'limit';
 };
 
 export type ExportFormat = 'svg' | 'png' | 'markdown';
@@ -63,6 +63,9 @@ export const MERMAID_LOOKS: { value: MermaidLook; label: string }[] = [
 export interface MermaidConfig {
   theme?: MermaidTheme;
   look?: MermaidLook;
+  maxEdges?: number;
+  maxTextSize?: number;
+  securityLevel?: 'strict' | 'loose' | 'antiscript' | 'sandbox';
   themeVariables?: Record<string, string | Record<string, string>>;
   fontFamily?: string;
   flowchart?: {
@@ -80,6 +83,11 @@ export interface MermaidConfig {
   };
   [key: string]: unknown;
 }
+
+export type DiagramLimits = {
+  maxEdges: number;
+  maxTextSize: number;
+};
 
 export interface EditorSettings {
   theme: 'vs-dark' | 'vs-light';

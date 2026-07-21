@@ -41,6 +41,7 @@ The project provides a professional-grade diagram editor with real-time preview,
 - **Component tests** - Vitest with jsdom for unit and integration tests
 - **Hot Module Replacement** - Instant feedback during development
 - **Monaco Editor** - Professional code editing with syntax highlighting
+- **Offline runtime** - Same-origin Monaco, fonts, Mermaid chunks, and a generated precache
 
 ---
 
@@ -286,11 +287,13 @@ window.location.hash = encoded;  // Encoded string placed directly in hash
 **Loading from URL:**
 ```typescript
 useEffect(() => {
-  const urlState = parseUrlState();
-  if (urlState?.code) {
-    setCode(urlState.code);
-    setConfig(urlState.config || DEFAULT_MERMAID_CONFIG);
-    toast.success('Diagram loaded from URL');
+  const result = parseUrlStateResult();
+  if (result.status === 'valid') {
+    setSharedCode(result.state.code);
+    setPendingImportedConfig(result.state.config ?? null);
+    toast.success('Shared diagram opened without replacing your saved work');
+  } else if (result.status === 'invalid') {
+    showRecoveryGuidance(result.reason);
   }
 }, []);
 ```
@@ -301,6 +304,15 @@ useEffect(() => {
 - URL length limits: ~2KB (IE), ~100KB (modern browsers)
 
 ### 4.2 Rendering Pipeline (Mermaid → SVG)
+
+Before Mermaid receives source, `sanitizeMermaidSource()` removes network-bearing constructs and
+`assertDiagramWithinLimits()` performs a cheap refusal check. Source above the interactive threshold
+does not auto-render; the preview exposes **Render now** and keeps compatible last-valid output.
+Mermaid security is always strict, regardless of persisted, JSON-edited, or imported configuration.
+
+The service worker is production-only. Verify offline work against `npm run preview`, not the Vite
+development server. Wait for `navigator.serviceWorker.ready`, reload once to establish control, then
+take the browser context offline.
 
 **Flow:** Code Editor → App state → DiagramPreview → Mermaid.js → SVG → DOM
 
