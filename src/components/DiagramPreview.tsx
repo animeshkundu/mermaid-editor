@@ -263,30 +263,30 @@ export const DiagramPreview = ({
 
       {svg && (
         <div className="min-h-0 flex-1">
-          <PanZoomContainer>
-          <div className="flex items-center justify-center min-h-full p-6">
-            <div
-              ref={containerRef}
-              className={cn(
-                'mermaid-diagram transition-opacity duration-200',
-                isStale && 'opacity-[0.45]'
+          <PanZoomContainer svg={svg}>
+            <div className="flex min-h-full items-center justify-center p-6">
+              <div
+                ref={containerRef}
+                className={cn(
+                  'mermaid-diagram transition-opacity duration-200',
+                  isStale && 'opacity-[0.45]'
+                )}
+                data-testid="mermaid-diagram"
+                aria-label={
+                  isStale
+                    ? 'Rendering paused. Showing the previous valid diagram.'
+                    : 'Rendered Mermaid diagram'
+                }
+                aria-describedby={isStale ? staleDescriptionId : undefined}
+                dangerouslySetInnerHTML={{ __html: svg }}
+              />
+              {isStale && (
+                <span id={staleDescriptionId} className="sr-only">
+                  The current source has errors. The previous valid diagram remains available
+                  for viewing and visual export.
+                </span>
               )}
-              data-testid="mermaid-diagram"
-              aria-label={
-                isStale
-                  ? 'Rendering paused. Showing the previous valid diagram.'
-                  : 'Rendered Mermaid diagram'
-              }
-              aria-describedby={isStale ? staleDescriptionId : undefined}
-              dangerouslySetInnerHTML={{ __html: svg }}
-            />
-            {isStale && (
-              <span id={staleDescriptionId} className="sr-only">
-                The current source has errors. The previous valid diagram remains available
-                for viewing and visual export.
-              </span>
-            )}
-          </div>
+            </div>
           </PanZoomContainer>
         </div>
       )}

@@ -50,6 +50,16 @@ describe('DiagramPreview Component', () => {
       expect(onSvgRendered).toHaveBeenCalled();
     }, { timeout: 5000 });
   });
+
+  it('should render the live diagram minimap from the committed SVG', async () => {
+    render(<DiagramPreview {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('region', { name: 'Diagram minimap' })
+      ).toBeInTheDocument();
+    });
+  });
 });
 
 describe('DiagramPreview Error Handling', () => {
