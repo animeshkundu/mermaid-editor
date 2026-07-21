@@ -4,7 +4,19 @@
  * We'll use a simpler approach with built-in browser APIs
  */
 
-import { MermaidConfig } from '@/types';
+import { HARD_DIAGRAM_CEILING } from '@/lib/constants';
+import type { MermaidConfig } from '@/types';
+
+export const MAX_SHARE_ENCODED_SIZE = 1_000_000;
+export const MAX_SHARE_CONFIG_SIZE = 100_000;
+const FORBIDDEN_CONFIG_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  'securityLevel',
+  'secure',
+]);
+const SHARE_STATE_KEYS = new Set(['code', 'config', 'panZoom']);
 
 export interface ShareableState {
   code: string;
@@ -16,13 +28,125 @@ export interface ShareableState {
   };
 }
 
+export type UrlStateParseResult =
+  | { status: 'absent' }
+  | { status: 'invalid'; reason: 'malformed' | 'oversized' }
+  | { status: 'valid'; state: ShareableState };
+
+type ShareStateValidationResult = Exclude<UrlStateParseResult, { status: 'absent' }>;
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const sanitizeConfigValue = (
+  value: unknown,
+  depth: number = 0
+): unknown => {
+  if (depth > 8) {
+    return undefined;
+  }
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  ) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 1_000)
+      .map((entry) => sanitizeConfigValue(entry, depth + 1))
+      .filter((entry) => entry !== undefined);
+  }
+  if (!isPlainObject(value)) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value).slice(0, 1_000)) {
+    if (FORBIDDEN_CONFIG_KEYS.has(key)) {
+      continue;
+    }
+    const safeEntry = sanitizeConfigValue(entry, depth + 1);
+    if (safeEntry !== undefined) {
+      sanitized[key] = safeEntry;
+    }
+  }
+  return sanitized;
+};
+
+export const sanitizeImportedConfig = (
+  config: unknown
+): MermaidConfig | undefined => {
+  if (!isPlainObject(config)) {
+    return undefined;
+  }
+  const sanitized = sanitizeConfigValue(config);
+  if (!isPlainObject(sanitized)) {
+    return undefined;
+  }
+  return sanitized as MermaidConfig;
+};
+
+const validateShareState = (value: unknown): ShareStateValidationResult => {
+  if (
+    !isPlainObject(value) ||
+    Object.keys(value).some((key) => !SHARE_STATE_KEYS.has(key)) ||
+    typeof value.code !== 'string'
+  ) {
+    return { status: 'invalid', reason: 'malformed' };
+  }
+  if (value.code.length > HARD_DIAGRAM_CEILING.maxTextSize) {
+    return { status: 'invalid', reason: 'oversized' };
+  }
+
+  const state: ShareableState = { code: value.code };
+  if (value.config !== undefined) {
+    const config = sanitizeImportedConfig(value.config);
+    if (!config) {
+      return { status: 'invalid', reason: 'malformed' };
+    }
+    if (JSON.stringify(config).length > MAX_SHARE_CONFIG_SIZE) {
+      return { status: 'invalid', reason: 'oversized' };
+    }
+    state.config = config;
+  }
+  if (value.panZoom !== undefined) {
+    if (
+      !isPlainObject(value.panZoom) ||
+      !['x', 'y', 'zoom'].every(
+        (key) => typeof value.panZoom?.[key] === 'number' && Number.isFinite(value.panZoom[key])
+      ) ||
+      Object.keys(value.panZoom).some((key) => !['x', 'y', 'zoom'].includes(key))
+    ) {
+      return { status: 'invalid', reason: 'malformed' };
+    }
+    state.panZoom = {
+      x: value.panZoom.x as number,
+      y: value.panZoom.y as number,
+      zoom: Math.min(Math.max(value.panZoom.zoom as number, 0.1), 16),
+    };
+  }
+  return { status: 'valid', state };
+};
+
+const normalizeShareState = (value: unknown): ShareableState | null => {
+  const result = validateShareState(value);
+  return result.status === 'valid' ? result.state : null;
+};
+
 /**
  * Compress and encode state to a URL-safe string
  * Uses TextEncoder + btoa for browser compatibility
  */
 export const encodeState = (state: ShareableState): string => {
   try {
-    const json = JSON.stringify(state);
+    const normalized = normalizeShareState(state);
+    if (!normalized) {
+      return '';
+    }
+    const json = JSON.stringify(normalized);
     const bytes = new TextEncoder().encode(json);
     
     // Convert to base64
@@ -32,10 +156,11 @@ export const encodeState = (state: ShareableState): string => {
     const base64 = btoa(binary);
     
     // Make URL-safe
-    return base64
+    const encoded = base64
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
+    return encoded.length <= MAX_SHARE_ENCODED_SIZE ? encoded : '';
   } catch (error) {
     console.error('Failed to encode state:', error);
     return '';
@@ -45,7 +170,14 @@ export const encodeState = (state: ShareableState): string => {
 /**
  * Decode URL-safe string back to state
  */
-export const decodeState = (encoded: string): ShareableState | null => {
+const decodeStateResult = (encoded: string): ShareStateValidationResult => {
+  if (encoded.length > MAX_SHARE_ENCODED_SIZE) {
+    return { status: 'invalid', reason: 'oversized' };
+  }
+  if (!encoded || !/^[A-Za-z\d_-]+$/.test(encoded)) {
+    return { status: 'invalid', reason: 'malformed' };
+  }
+
   try {
     // Restore base64 padding
     let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
@@ -60,11 +192,15 @@ export const decodeState = (encoded: string): ShareableState | null => {
     }
     
     const json = new TextDecoder().decode(bytes);
-    return JSON.parse(json) as ShareableState;
-  } catch (error) {
-    console.error('Failed to decode state:', error);
-    return null;
+    return validateShareState(JSON.parse(json));
+  } catch {
+    return { status: 'invalid', reason: 'malformed' };
   }
+};
+
+export const decodeState = (encoded: string): ShareableState | null => {
+  const result = decodeStateResult(encoded);
+  return result.status === 'valid' ? result.state : null;
 };
 
 /**
@@ -89,22 +225,27 @@ export const generateShareUrl = (state: ShareableState): string => {
  * Parse state from the current URL
  * Supports both hash (new) and query param (legacy) formats
  */
-export const parseUrlState = (): ShareableState | null => {
+export const parseUrlStateResult = (): UrlStateParseResult => {
   const url = new URL(window.location.href);
   
   // Try hash first (new format - avoids 431 errors)
   const hashEncoded = url.hash.slice(1); // Remove leading #
   if (hashEncoded) {
-    return decodeState(hashEncoded);
+    return decodeStateResult(hashEncoded);
   }
   
   // Fall back to query param (legacy format)
   const queryEncoded = url.searchParams.get('code');
   if (queryEncoded) {
-    return decodeState(queryEncoded);
+    return decodeStateResult(queryEncoded);
   }
   
-  return null;
+  return { status: 'absent' };
+};
+
+export const parseUrlState = (): ShareableState | null => {
+  const result = parseUrlStateResult();
+  return result.status === 'valid' ? result.state : null;
 };
 
 /**

@@ -1,5 +1,17 @@
 # Development History - Mermaid Live Editor
 
+## 2026-07-20: Offline, Security, and Bounded Rendering
+
+- Removed Google Fonts and jsDelivr as runtime dependencies; fonts and Monaco now ship with the app.
+- Added production app-shell precaching and explicit update prompts for reliable offline reloads.
+- Added source and rendered-SVG sanitization plus a CSP that blocks all network image loads,
+  including same-origin images.
+- Pinned Mermaid strict security and consent-gated shared configuration imports.
+- Raised Mermaid's hidden edge/text defaults, added validated hard ceilings and preflight refusal,
+  and added an explicit large-diagram render flow.
+- Added resilient share payload and localStorage handling, disclosed PNG scale reductions, online
+  status, keyboard pan/zoom, live announcements, and reduced-motion behavior.
+
 ## Issue: Export and Copy Image Functionality
 
 ### Problem Summary

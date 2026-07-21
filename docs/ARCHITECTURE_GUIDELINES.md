@@ -18,7 +18,7 @@ This document defines the architectural principles, patterns, and subsystems of 
 - Works offline (after initial load)
 
 **Pattern Enforcement**:
-- Never introduce API calls to remote services (except for external library CDNs)
+- Never introduce API calls or runtime assets from remote services
 - All features must work without network connectivity after initial page load
 - User data remains in the browser's `localStorage` and never leaves the client
 
@@ -74,10 +74,12 @@ const encoded = encodeState({ code, config });
 url.hash = encoded;  // Encoded string placed directly in hash (no prefix)
 
 // Decode: URL → State  
-const urlState = parseUrlState();
-if (urlState?.code) {
-  setCode(urlState.code);
-  setConfig(urlState.config);
+const result = parseUrlStateResult();
+if (result.status === 'valid') {
+  setSharedCode(result.state.code);
+  setPendingImportedConfig(result.state.config ?? null);
+} else if (result.status === 'invalid') {
+  showRecoveryGuidance(result.reason);
 }
 ```
 
@@ -128,6 +130,7 @@ const CodeEditor = lazy(() =>
 - Reduces initial bundle size
 - Improves Time to Interactive (TTI)
 - Allows preview-only users to skip downloading the editor entirely
+- Uses the locally bundled Monaco instance and worker; no CDN loader is permitted
 
 **Fallback**: `<Suspense>` with `<Skeleton>` provides visual feedback during load.
 
@@ -206,11 +209,12 @@ Code → 300 ms debounce → request epoch → serialized renderMermaid() → SV
 **Process**:
 1. Wait for exclusive access to the Mermaid singleton.
 2. Establish the normalized effective config only when it changed.
-3. Render into a unique detached offscreen container.
-4. Post-process SVG (sequence diagram coloring).
-5. Remove temporary and orphan DOM on every outcome.
-6. Restore committed config after failure, supersession, or unmount.
-7. Return SVG string.
+3. Sanitize source and refuse input outside the bounded preflight envelope.
+4. Render into a unique detached offscreen container.
+5. Post-process and sanitize SVG.
+6. Remove temporary and orphan DOM on every outcome.
+7. Restore committed config after failure, supersession, or unmount.
+8. Return SVG string.
 
 **Preview commit contract**: A monotonic epoch and mounted guard allow only the newest logical
 request to commit. Compatible syntax failures retain and dim the previous valid SVG; a changed or
@@ -335,6 +339,7 @@ encodeState(state: ShareableState): string
 decodeState(encoded: string): ShareableState | null
 generateShareUrl(state: ShareableState): string
 parseUrlState(): ShareableState | null
+parseUrlStateResult(): UrlStateParseResult
 copyShareUrl(state: ShareableState): Promise<void>
 ```
 
@@ -363,8 +368,8 @@ https://example.com/#state=eyJjb2RlIjoiZ3JhcGggVEQifQ
 
 **Error Handling**:
 - Invalid base64: Return `null`, don't crash
-- Invalid JSON: Return `null`, log error
-- Corrupted URL: Silently ignore, use localStorage state
+- Invalid JSON: Return `null`, don't crash
+- Corrupted or oversized URL: Preserve localStorage state and show actionable recovery guidance
 
 **Why No Compression**: 
 - Native browser APIs (no dependencies)

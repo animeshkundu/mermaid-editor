@@ -42,6 +42,8 @@ All primary workflows are fully keyboard-accessible via the `useKeyboardShortcut
 - Form controls include `aria-invalid` states for validation feedback
 - Buttons use semantic HTML with proper `aria-label` where icons lack text
 - Focus management: Custom `focus-visible:ring-*` styles provide clear focus indicators without visual noise on mouse clicks
+- Render, limit, and offline state changes are announced through a polite live region
+- The preview canvas is a named keyboard-focusable region: arrows pan, `+`/`-` zoom, and `0` resets
 
 **Focus Styles:**
 The base button style in `src/components/ui/button.tsx` demonstrates our focus pattern:
@@ -83,6 +85,11 @@ export function useIsMobile() {
 - Vertical layout enforced
 - Touch-friendly button sizes (`h-9` minimum, `size-10` for icon buttons)
 - Pan/zoom controls in preview for easier diagram navigation
+- A compact online/offline indicator remains visible without displacing primary actions
+
+Large diagrams use progressive disclosure: live rendering pauses above the interactive threshold and
+an explicit **Render now** action explains the cost. This state must never look like an indefinite
+loading skeleton.
 
 **Utility-based Responsive Design:**
 Tailwind's responsive modifiers are used throughout:

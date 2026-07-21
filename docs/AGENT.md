@@ -80,6 +80,18 @@ src/
 - Retain a last-good SVG only when the current root diagram type still matches
 - Monaco markers must derive from the same debounced rejection as preview feedback
 - Visual export may use retained SVG only with an explicit stale warning
+- Run `sanitizeMermaidSource()` and the preflight guard before every Mermaid render
+- Never raise `HARD_DIAGRAM_CEILING` without production-browser measurements
+- Diagrams above `INTERACTIVE_RENDER_THRESHOLD` require an explicit **Render now** action
+
+### Offline and Shared-Content Security
+
+- Runtime assets must be same-origin and included in the production precache
+- Keep Monaco local through `src/lib/monaco-loader.ts`; never restore CDN loader paths
+- Keep Mermaid `securityLevel` pinned to `strict`
+- The CSP `img-src` must remain `data: blob:` without `'self'`
+- Shared configuration must be validated and consent-gated before localStorage persistence
+- Shared source must not overwrite the saved local document on initial load
 
 ### UI Conventions
 - **Components:** shadcn/ui (new-york style) — add via CLI, don't hand-write

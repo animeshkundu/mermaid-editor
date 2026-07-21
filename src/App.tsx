@@ -3,6 +3,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Toolbar, LayoutDirection, AppTheme } from '@/components/Toolbar';
 import { DiagramPreview } from '@/components/DiagramPreview';
 import { ConfigDialog } from '@/components/ConfigDialog';
+import { ImportConfigDialog } from '@/components/ImportConfigDialog';
 import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog';
 import {
   ResizablePanelGroup,
@@ -28,17 +29,34 @@ import {
   DEFAULT_EDITOR_SETTINGS,
 } from '@/lib/constants';
 import { exportDiagram, copyImageToClipboard } from '@/lib/export';
-import { copyShareUrl, parseUrlState } from '@/lib/share';
+import {
+  clearUrlState,
+  copyShareUrl,
+  parseUrlStateResult,
+} from '@/lib/share';
 import { useHistory } from '@/hooks/use-history';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Code, Eye } from '@phosphor-icons/react';
+import { sanitizeMermaidSource } from '@/lib/sanitize-source';
+import { createEffectiveConfig } from '@/lib/mermaid-config';
+import {
+  STORAGE_ERROR_EVENT,
+  type StorageErrorDetail,
+} from '@/hooks/use-local-storage';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
-const CodeEditor = lazy(() => import('@/components/CodeEditor').then(module => ({ default: module.CodeEditor })));
+const CodeEditor = lazy(async () => {
+  await import('@/lib/monaco-loader');
+  const module = await import('@/components/CodeEditor');
+  return { default: module.CodeEditor };
+});
 
 function App() {
-  const [code, setCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
+  const [persistedCode, setPersistedCode] = useLocalStorage('mermaid-code', DEFAULT_DIAGRAM_CODE);
+  const [sharedCode, setSharedCode] = useState<string | null>(null);
+  const code = sharedCode ?? persistedCode;
   const [config, setConfig] = useLocalStorage<MermaidConfig>('mermaid-config', DEFAULT_MERMAID_CONFIG);
   const [editorSettings] = useLocalStorage<EditorSettings>('editor-settings', DEFAULT_EDITOR_SETTINGS);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -48,10 +66,18 @@ function App() {
   const [diagnostic, setDiagnostic] = useState<RenderDiagnostic | null>(null);
   const [isExportStale, setIsExportStale] = useState(false);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
+  const [pendingImportedConfig, setPendingImportedConfig] = useState<MermaidConfig | null>(null);
+  const [liveMessage, setLiveMessage] = useState('Editor ready');
   const [layout, setLayout] = useLocalStorage<LayoutDirection>('layout-direction', 'horizontal');
   const [appTheme, setAppTheme] = useLocalStorage<AppTheme>('app-theme', 'light');
   const previewRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const isOnline = useOnlineStatus();
+
+  const persistCode = useCallback((nextCode: string) => {
+    setSharedCode(null);
+    setPersistedCode(nextCode);
+  }, [setPersistedCode]);
 
   // Apply app theme to document
   useEffect(() => {
@@ -62,30 +88,68 @@ function App() {
     }
   }, [appTheme]);
 
+  useEffect(() => {
+    const handleStorageError = (event: Event) => {
+      const detail = (event as CustomEvent<StorageErrorDetail>).detail;
+      toast.error('Changes could not be saved locally', {
+        description:
+          detail.operation === 'read'
+            ? 'Stored data is corrupt. The original value was left untouched so it can be recovered.'
+            : 'Your current work remains open. Free browser storage before reloading.',
+      });
+      setLiveMessage('Local storage problem. Current work remains open; do not reload yet.');
+    };
+    window.addEventListener(STORAGE_ERROR_EVENT, handleStorageError);
+    return () => window.removeEventListener(STORAGE_ERROR_EVENT, handleStorageError);
+  }, []);
+
+  useEffect(() => {
+    setLiveMessage(
+      isOnline
+        ? 'Application is online'
+        : 'Application is offline. Cached editor features remain available.'
+    );
+  }, [isOnline]);
+
   // History management
   const { pushCode, undo, redo, canUndo, canRedo } = useHistory({
     initialCode: code || DEFAULT_DIAGRAM_CODE,
-    onCodeChange: (newCode) => setCode(newCode),
+    onCodeChange: persistCode,
   });
 
   // Load state from URL on mount
   useEffect(() => {
-    const urlState = parseUrlState();
-    if (urlState?.code) {
-      setCode(urlState.code);
-      if (urlState.config) {
-        setConfig(urlState.config);
+    const result = parseUrlStateResult();
+    if (result.status === 'invalid') {
+      const description =
+        result.reason === 'oversized'
+          ? 'The shared diagram exceeds the supported link size. Your saved diagram is unchanged. Ask the sender to reduce it and share again.'
+          : 'The link is invalid or damaged. Your saved diagram is unchanged. Check the link or ask the sender to share it again.';
+      toast.error('Shared link could not be opened', {
+        description,
+        action: {
+          label: 'Remove invalid link',
+          onClick: clearUrlState,
+        },
+      });
+      setLiveMessage(`Shared link could not be opened. ${description}`);
+      return;
+    }
+    if (result.status === 'valid') {
+      setSharedCode(sanitizeMermaidSource(result.state.code));
+      if (result.state.config) {
+        setPendingImportedConfig(result.state.config);
       }
-      toast.success('Diagram loaded from URL');
+      toast.success('Shared diagram opened without replacing your saved work');
     }
   }, []);
 
   const handleCodeChange = useCallback((newCode: string) => {
-    setCode(newCode);
+    persistCode(newCode);
     pushCode(newCode);
     // Update history state for UI
     setHistoryState({ canUndo: canUndo(), canRedo: canRedo() });
-  }, [setCode, pushCode, canUndo, canRedo]);
+  }, [persistCode, pushCode, canUndo, canRedo]);
 
   const handleUndo = useCallback(() => {
     undo();
@@ -110,10 +174,10 @@ function App() {
   }, [code, config]);
 
   const handleThemeChange = useCallback((theme: MermaidTheme) => {
-    setConfig({
+    setConfig(createEffectiveConfig({
       ...config,
       theme,
-    });
+    }));
   }, [config, setConfig]);
 
   const handleLayoutChange = useCallback((direction: LayoutDirection) => {
@@ -129,8 +193,16 @@ function App() {
   }, [setAppTheme]);
 
   const handleConfigSave = useCallback((newConfig: MermaidConfig) => {
-    setConfig(newConfig);
+    setConfig(createEffectiveConfig(newConfig));
   }, [setConfig]);
+
+  const handleApplyImportedConfig = useCallback(() => {
+    if (pendingImportedConfig) {
+      setConfig(createEffectiveConfig(pendingImportedConfig));
+      toast.success('Shared configuration applied');
+    }
+    setPendingImportedConfig(null);
+  }, [pendingImportedConfig, setConfig]);
 
   const handleExport = useCallback(async (format: ExportFormat, scale?: PNGScale) => {
     const svgAtClick = currentSvgString;
@@ -141,21 +213,27 @@ function App() {
         return;
       }
 
-      await exportDiagram(format, code || '', svgAtClick, { scale });
+      const result = await exportDiagram(format, code || '', svgAtClick, { scale });
       toast.success(`Exported as ${format.toUpperCase()}`);
+      if (result?.scaleReduced) {
+        toast.warning(
+          `PNG scale reduced from ${result.requestedScale}x to ${result.appliedScale}x to stay within browser canvas limits`
+        );
+      }
       if (isExportStale && format !== 'markdown') {
         toast.warning('Exported last valid diagram — current source has errors');
       }
     } catch (error) {
-      toast.error('Export failed');
+      toast.error(error instanceof Error ? error.message : 'Export failed');
       console.error(error);
     }
   }, [code, currentSvgString, isExportStale]);
 
   const handleLoadExample = useCallback((example: DiagramExample) => {
-    setCode(example.code);
+    persistCode(example.code);
+    pushCode(example.code);
     toast.success(`Loaded: ${example.name}`);
-  }, [setCode]);
+  }, [persistCode, pushCode]);
 
   const handleCopyCode = useCallback(async () => {
     try {
@@ -174,13 +252,18 @@ function App() {
         return;
       }
 
-      await copyImageToClipboard(svgAtClick);
+      const result = await copyImageToClipboard(svgAtClick);
       toast.success('Image copied to clipboard');
+      if (result?.scaleReduced) {
+        toast.warning(
+          `Image scale reduced from ${result.requestedScale}x to ${result.appliedScale}x to stay within browser canvas limits`
+        );
+      }
       if (isExportStale) {
         toast.warning('Exported last valid diagram — current source has errors');
       }
     } catch (error) {
-      toast.error('Failed to copy image');
+      toast.error(error instanceof Error ? error.message : 'Failed to copy image');
       console.error(error);
     }
   }, [currentSvgString, isExportStale]);
@@ -223,6 +306,7 @@ function App() {
         currentAppTheme={appTheme || 'light'}
         canUndo={historyState.canUndo}
         canRedo={historyState.canRedo}
+        isOnline={isOnline}
       />
 
       {isMobile ? (
@@ -266,6 +350,7 @@ function App() {
               onSvgRendered={handleSvgRendered}
               onDiagnostic={setDiagnostic}
               onStaleChange={setIsExportStale}
+              onStatusChange={setLiveMessage}
             />
           </TabsContent>
         </Tabs>
@@ -278,6 +363,7 @@ function App() {
               onSvgRendered={handleSvgRendered}
               onDiagnostic={setDiagnostic}
               onStaleChange={setIsExportStale}
+              onStatusChange={setLiveMessage}
             />
           </div>
           <Button
@@ -311,7 +397,7 @@ function App() {
             </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          <ResizableHandle withHandle aria-label="Resize editor and preview panels" />
 
           <ResizablePanel defaultSize={50} minSize={20}>
             <div ref={previewRef} className="h-full">
@@ -321,6 +407,7 @@ function App() {
                 onSvgRendered={handleSvgRendered}
                 onDiagnostic={setDiagnostic}
                 onStaleChange={setIsExportStale}
+                onStatusChange={setLiveMessage}
               />
             </div>
           </ResizablePanel>
@@ -334,12 +421,22 @@ function App() {
         onSave={handleConfigSave}
       />
 
+      <ImportConfigDialog
+        open={pendingImportedConfig !== null}
+        config={pendingImportedConfig}
+        onApply={handleApplyImportedConfig}
+        onDiscard={() => setPendingImportedConfig(null)}
+      />
+
       <KeyboardShortcutsDialog
         open={isShortcutsOpen}
         onOpenChange={setIsShortcutsOpen}
       />
 
       <Toaster />
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveMessage}
+      </div>
     </div>
   );
 }

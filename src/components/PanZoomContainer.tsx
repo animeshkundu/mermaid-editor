@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, ReactNode, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { MagnifyingGlassMinus, MagnifyingGlassPlus, ArrowsOut } from '@phosphor-icons/react';
+import { cn } from '@/lib/utils';
 
 interface PanZoomContainerProps {
   children: ReactNode;
@@ -78,6 +79,38 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
     setPosition({ x: 0, y: 0 });
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const panStep = event.shiftKey ? 64 : 24;
+    switch (event.key) {
+      case 'ArrowLeft':
+        setPosition((current) => ({ ...current, x: current.x - panStep }));
+        break;
+      case 'ArrowRight':
+        setPosition((current) => ({ ...current, x: current.x + panStep }));
+        break;
+      case 'ArrowUp':
+        setPosition((current) => ({ ...current, y: current.y - panStep }));
+        break;
+      case 'ArrowDown':
+        setPosition((current) => ({ ...current, y: current.y + panStep }));
+        break;
+      case '+':
+      case '=':
+        zoomIn();
+        break;
+      case '-':
+      case '_':
+        zoomOut();
+        break;
+      case '0':
+        resetZoom();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (container) {
@@ -90,7 +123,14 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
     <div className="relative h-full w-full overflow-hidden">
       <div
         ref={containerRef}
-        className={`h-full w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={cn(
+          'h-full w-full cursor-grab touch-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+          isDragging && 'cursor-grabbing'
+        )}
+        role="region"
+        aria-label="Interactive diagram canvas. Use arrow keys to pan, plus and minus to zoom, and zero to reset."
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -114,32 +154,37 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
 
       {/* Zoom controls with percentage display */}
       <div className="absolute bottom-4 right-4 flex items-center gap-2">
-        <span className="text-xs font-mono bg-secondary/80 px-2 py-1 rounded shadow-sm min-w-[4rem] text-center">
+        <span className="text-xs font-mono bg-secondary/80 px-2 py-1 rounded shadow-sm min-w-[4rem] text-center" aria-live="polite">
           {Math.round(scale * 100)}%
         </span>
         <Button
           size="sm"
           variant="secondary"
           onClick={zoomOut}
+          aria-label="Zoom out diagram"
+          disabled={scale <= 0.1}
           className="shadow-lg"
         >
-          <MagnifyingGlassMinus className="h-4 w-4" />
+          <MagnifyingGlassMinus className="h-4 w-4" weight="duotone" />
         </Button>
         <Button
           size="sm"
           variant="secondary"
           onClick={resetZoom}
+          aria-label="Reset diagram pan and zoom"
           className="shadow-lg"
         >
-          <ArrowsOut className="h-4 w-4" />
+          <ArrowsOut className="h-4 w-4" weight="duotone" />
         </Button>
         <Button
           size="sm"
           variant="secondary"
           onClick={zoomIn}
+          aria-label="Zoom in diagram"
+          disabled={scale >= 16}
           className="shadow-lg"
         >
-          <MagnifyingGlassPlus className="h-4 w-4" />
+          <MagnifyingGlassPlus className="h-4 w-4" weight="duotone" />
         </Button>
       </div>
     </div>

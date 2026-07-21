@@ -1,9 +1,10 @@
 import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
+import type { FallbackProps } from 'react-error-boundary';
 
-import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowClockwise, Warning } from '@phosphor-icons/react';
 
-export const ErrorFallback = ({ error, resetErrorBoundary }) => {
+export const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   // When encountering an error in the development mode, rethrow it and don't display the boundary.
   // The parent UI will take care of showing a more helpful dialog.
   if (import.meta.env.DEV) throw error;
@@ -12,7 +13,7 @@ export const ErrorFallback = ({ error, resetErrorBoundary }) => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Alert variant="destructive" className="mb-6">
-          <AlertTriangleIcon />
+          <Warning weight="duotone" />
           <AlertTitle>An error occurred</AlertTitle>
           <AlertDescription>
             Something unexpected happened while running the application. The error details are shown below.
@@ -22,7 +23,7 @@ export const ErrorFallback = ({ error, resetErrorBoundary }) => {
         <div className="bg-card border rounded-lg p-4 mb-6">
           <h3 className="font-semibold text-sm text-muted-foreground mb-2">Error Details:</h3>
           <pre className="text-xs text-destructive bg-muted/50 p-3 rounded border overflow-auto max-h-32">
-            {error.message}
+            {error instanceof Error ? error.message : String(error)}
           </pre>
         </div>
         
@@ -31,7 +32,7 @@ export const ErrorFallback = ({ error, resetErrorBoundary }) => {
           className="w-full"
           variant="outline"
         >
-          <RefreshCwIcon />
+          <ArrowClockwise weight="duotone" />
           Try Again
         </Button>
       </div>

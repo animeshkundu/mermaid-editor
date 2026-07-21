@@ -11,6 +11,14 @@ import {
   extractErrorMessage,
   isDependencyError,
 } from '@/lib/mermaid-diagnostics';
+import {
+  assertDiagramWithinLimits,
+  withRenderTimeout,
+} from '@/lib/render-guard';
+import {
+  sanitizeMermaidSource,
+  sanitizeRenderedSvg,
+} from '@/lib/sanitize-source';
 import type { MermaidConfig } from '@/types';
 
 export { normalizeConfigKey, setCommittedConfig };
@@ -198,9 +206,12 @@ export const renderMermaid = async (
   elementId: string,
   config: MermaidConfig = DEFAULT_MERMAID_CONFIG,
   options?: RenderOptions
-): Promise<{ svg: string }> =>
-  enqueue(async () => {
-    const effectiveConfig = createEffectiveConfig(config);
+): Promise<{ svg: string }> => {
+  const effectiveConfig = createEffectiveConfig(config);
+  const sanitizedCode = sanitizeMermaidSource(code);
+  assertDiagramWithinLimits(sanitizedCode, effectiveConfig);
+
+  return enqueue(async () => {
     const supportsRenderContainer = mermaid.render.length >= 3;
     const renderId = supportsRenderContainer
       ? `${elementId}-${++renderSequence}`
@@ -223,10 +234,13 @@ export const renderMermaid = async (
 
     try {
       applyConfigIfNeeded(effectiveConfig);
-      const { svg } = supportsRenderContainer
-        ? await mermaid.render(renderId, code, container)
-        : await mermaid.render(renderId, code);
-      const processedSvg = postProcessSequenceDiagramSvg(svg, code);
+      const renderOperation = supportsRenderContainer
+        ? mermaid.render(renderId, sanitizedCode, container)
+        : mermaid.render(renderId, sanitizedCode);
+      const { svg } = await withRenderTimeout(renderOperation);
+      const processedSvg = sanitizeRenderedSvg(
+        postProcessSequenceDiagramSvg(svg, sanitizedCode)
+      );
       shouldRestoreConfig = options?.isCurrent ? !options.isCurrent() : false;
       result = { svg: processedSvg };
     } catch (error) {
@@ -261,6 +275,7 @@ export const renderMermaid = async (
 
     return result;
   });
+};
 
 export const validateMermaidSyntax = async (code: string): Promise<boolean> => {
   try {
