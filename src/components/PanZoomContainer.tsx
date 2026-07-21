@@ -1,18 +1,114 @@
-import { useRef, useEffect, useState, ReactNode, useCallback } from 'react';
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useCallback,
+} from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { MagnifyingGlassMinus, MagnifyingGlassPlus, ArrowsOut } from '@phosphor-icons/react';
+import { DiagramMinimap } from '@/components/DiagramMinimap';
+import { cn } from '@/lib/utils';
 
-interface PanZoomContainerProps {
+type PanZoomContainerProps = {
   children: ReactNode;
-}
+  svg?: string;
+};
 
-export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
+type PanZoomLayout = {
+  viewportSize: {
+    width: number;
+    height: number;
+  };
+  diagramBounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+};
+
+const isSameLayout = (current: PanZoomLayout | null, next: PanZoomLayout | null) => {
+  if (!current || !next) {
+    return current === next;
+  }
+
+  return (
+    current.viewportSize.width === next.viewportSize.width &&
+    current.viewportSize.height === next.viewportSize.height &&
+    current.diagramBounds.x === next.diagramBounds.x &&
+    current.diagramBounds.y === next.diagramBounds.y &&
+    current.diagramBounds.width === next.diagramBounds.width &&
+    current.diagramBounds.height === next.diagramBounds.height
+  );
+};
+
+export const PanZoomContainer = ({ children, svg }: PanZoomContainerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isMinimapDragging, setIsMinimapDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [layout, setLayout] = useState<PanZoomLayout | null>(null);
+
+  useLayoutEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
+  const measureLayout = useCallback(() => {
+    const container = containerRef.current;
+    const svgElement = contentRef.current?.querySelector('svg');
+
+    if (!container || !svgElement) {
+      setLayout((current) => (isSameLayout(current, null) ? current : null));
+      return;
+    }
+
+    const viewportBounds = container.getBoundingClientRect();
+    const transformedDiagramBounds = svgElement.getBoundingClientRect();
+    const computedDiagramStyle = window.getComputedStyle(svgElement);
+    const computedDiagramWidth = Number.parseFloat(computedDiagramStyle.width);
+    const computedDiagramHeight = Number.parseFloat(computedDiagramStyle.height);
+    const currentScale = scaleRef.current;
+
+    if (
+      viewportBounds.width <= 0 ||
+      viewportBounds.height <= 0 ||
+      transformedDiagramBounds.width <= 0 ||
+      transformedDiagramBounds.height <= 0 ||
+      currentScale <= 0
+    ) {
+      setLayout((current) => (isSameLayout(current, null) ? current : null));
+      return;
+    }
+
+    const diagramWidth =
+      Number.isFinite(computedDiagramWidth) && computedDiagramWidth > 0
+        ? computedDiagramWidth
+        : transformedDiagramBounds.width / currentScale;
+    const diagramHeight =
+      Number.isFinite(computedDiagramHeight) && computedDiagramHeight > 0
+        ? computedDiagramHeight
+        : transformedDiagramBounds.height / currentScale;
+    const nextLayout = {
+      viewportSize: {
+        width: viewportBounds.width,
+        height: viewportBounds.height,
+      },
+      diagramBounds: {
+        x: (viewportBounds.width - diagramWidth) / 2,
+        y: (viewportBounds.height - diagramHeight) / 2,
+        width: diagramWidth,
+        height: diagramHeight,
+      },
+    };
+
+    setLayout((current) => (isSameLayout(current, nextLayout) ? current : nextLayout));
+  }, []);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -86,11 +182,41 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
     }
   }, [handleWheel]);
 
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const content = contentRef.current;
+    const svgElement = content?.querySelector('svg');
+
+    measureLayout();
+    window.addEventListener('resize', measureLayout);
+
+    if (!container || !content || !svgElement || typeof ResizeObserver === 'undefined') {
+      return () => {
+        window.removeEventListener('resize', measureLayout);
+      };
+    }
+
+    const observer = new ResizeObserver(measureLayout);
+    observer.observe(container);
+    observer.observe(content);
+    observer.observe(svgElement);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measureLayout);
+    };
+  }, [measureLayout, svg]);
+
   return (
     <div className="relative h-full w-full overflow-hidden">
       <div
         ref={containerRef}
-        className={`h-full w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        role="region"
+        aria-label="Interactive diagram canvas"
+        className={cn(
+          'h-full w-full',
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        )}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -105,41 +231,59 @@ export const PanZoomContainer = ({ children }: PanZoomContainerProps) => {
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: 'center center',
-            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+            transition:
+              isDragging || isMinimapDragging ? 'none' : 'transform 0.1s ease-out',
           }}
         >
           {children}
         </div>
       </div>
 
-      {/* Zoom controls with percentage display */}
+      {svg && (
+        <DiagramMinimap
+          svg={svg}
+          viewportSize={layout?.viewportSize ?? null}
+          diagramBounds={layout?.diagramBounds ?? null}
+          scale={scale}
+          position={position}
+          onPositionChange={setPosition}
+          onInteractionChange={setIsMinimapDragging}
+        />
+      )}
+
       <div className="absolute bottom-4 right-4 flex items-center gap-2">
         <span className="text-xs font-mono bg-secondary/80 px-2 py-1 rounded shadow-sm min-w-[4rem] text-center">
           {Math.round(scale * 100)}%
         </span>
         <Button
+          type="button"
+          aria-label="Zoom out"
           size="sm"
           variant="secondary"
           onClick={zoomOut}
           className="shadow-lg"
         >
-          <MagnifyingGlassMinus className="h-4 w-4" />
+          <MagnifyingGlassMinus className="h-4 w-4" weight="duotone" />
         </Button>
         <Button
+          type="button"
+          aria-label="Reset pan and zoom"
           size="sm"
           variant="secondary"
           onClick={resetZoom}
           className="shadow-lg"
         >
-          <ArrowsOut className="h-4 w-4" />
+          <ArrowsOut className="h-4 w-4" weight="duotone" />
         </Button>
         <Button
+          type="button"
+          aria-label="Zoom in"
           size="sm"
           variant="secondary"
           onClick={zoomIn}
           className="shadow-lg"
         >
-          <MagnifyingGlassPlus className="h-4 w-4" />
+          <MagnifyingGlassPlus className="h-4 w-4" weight="duotone" />
         </Button>
       </div>
     </div>

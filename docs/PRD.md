@@ -15,9 +15,9 @@ A professional, feature-complete mermaid diagram editor providing real-time prev
 - **Success Criteria**: Smooth typing experience with syntax highlighting, line numbers, and code folding
 
 ### Live Diagram Preview
-- **Functionality**: Real-time rendering of mermaid diagrams with error display
-- **Purpose**: Provide instant visual feedback for diagram code
-- **Success Criteria**: Diagrams render within 300ms of typing stop, errors show helpful messages
+- **Functionality**: Real-time rendering of mermaid diagrams with error display, pan/zoom, and a diagram minimap
+- **Purpose**: Provide instant visual feedback and quick navigation across diagrams larger than the preview
+- **Success Criteria**: Diagrams render within 300ms of typing stop, errors show helpful messages, and the minimap tracks and controls the visible viewport
 
 ### Resizable Split Layout
 - **Functionality**: Draggable divider between editor and preview panels

@@ -80,6 +80,7 @@ src/
 - Retain a last-good SVG only when the current root diagram type still matches
 - Monaco markers must derive from the same debounced rejection as preview feedback
 - Visual export may use retained SVG only with an explicit stale warning
+- Keep diagram minimap navigation on the same local scale and position owned by `PanZoomContainer`
 
 ### UI Conventions
 - **Components:** shadcn/ui (new-york style) — add via CLI, don't hand-write

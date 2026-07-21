@@ -218,6 +218,11 @@ missing root type uses the blocking error card. Visual export continues from the
 an explicit stale warning. On mobile, the preview remains mounted while its tab is hidden so editor
 changes continue through the same render and diagnostic pipeline.
 
+**Pan/zoom and minimap contract**: `PanZoomContainer` is the single owner of preview scale and
+position. The desktop minimap receives the committed displayed SVG, measured layout, and those same
+state values; it never re-renders Mermaid or owns a parallel transform. See
+[ADR-003](./ADR/003-diagram-minimap-navigation.md).
+
 #### `postProcessSequenceDiagramSvg(svg, code)`
 **Purpose**: Auto-color sequence diagram actors when user hasn't defined explicit `box` directives.
 
