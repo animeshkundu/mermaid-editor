@@ -199,6 +199,7 @@ function App() {
     onOpenConfig: () => setIsConfigOpen(true),
     onToggleFullscreen: handleFullscreen,
     onToggleLayout: () => handleLayoutChange(layout === 'horizontal' ? 'vertical' : 'horizontal'),
+    isFullscreen,
   });
 
   return (

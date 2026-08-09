@@ -11,6 +11,7 @@ interface KeyboardShortcuts {
   onOpenExamples?: () => void;
   onToggleFullscreen?: () => void;
   onToggleLayout?: () => void;
+  isFullscreen?: boolean;
 }
 
 /**
@@ -22,7 +23,7 @@ interface KeyboardShortcuts {
  * - ?: Show keyboard shortcuts help
  * - Ctrl+,: Open config
  * - Ctrl+E: Open examples
- * - F11 / Escape: Toggle fullscreen
+ * - F11: Toggle fullscreen; Escape: Exit fullscreen
  * - Ctrl+\\: Toggle layout
  */
 export const useKeyboardShortcuts = ({
@@ -36,6 +37,7 @@ export const useKeyboardShortcuts = ({
   onOpenExamples,
   onToggleFullscreen,
   onToggleLayout,
+  isFullscreen,
 }: KeyboardShortcuts) => {
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -88,14 +90,16 @@ export const useKeyboardShortcuts = ({
         onToggleFullscreen?.();
       } else if (event.key === 'Escape') {
         // Escape: Exit fullscreen
-        onToggleFullscreen?.();
+        if (isFullscreen) {
+          onToggleFullscreen?.();
+        }
       } else if (isCtrlOrCmd && event.key === '\\') {
         // Ctrl+\: Toggle layout
         event.preventDefault();
         onToggleLayout?.();
       }
     },
-    [onUndo, onRedo, onSave, onExport, onCopyCode, onShowHelp, onOpenConfig, onOpenExamples, onToggleFullscreen, onToggleLayout]
+    [onUndo, onRedo, onSave, onExport, onCopyCode, onShowHelp, onOpenConfig, onOpenExamples, onToggleFullscreen, onToggleLayout, isFullscreen]
   );
 
   useEffect(() => {
